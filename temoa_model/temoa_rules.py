@@ -686,7 +686,7 @@ def EnergySupplyRisk_Constraint(M, r, p):
 
     EnergySR_rp = sum(
         value(M.EnergyCommodityConcentrationIndex[r, S_o, p]) * M.V_ImportShare[r, p, S_o]
-        for t in M.tech_imports
+        for t in M.tech_imports if (r, p, t) in M.processVintages
         for v in M.processVintages[r, p, t]
         for S_o in M.processOutputs[r, p, t, v]
         )
@@ -707,6 +707,11 @@ def ImportShare_Constraint(M, r, p, c):
         for s in M.time_season
         for d in M.time_of_day
     )
+    import_e_annual = sum(
+        M.V_FlowOutAnnual[r, p, S_i, S_t, S_v, c]
+        for S_t, S_v in M.commodityUStreamProcess[r, p, c] if S_t in M.tech_imports and S_t in M.tech_annual
+        for S_i in M.ProcessInputsByOutput[r, p, S_t, S_v, c]
+    )
     export_e = sum(
         M.V_FlowOut[r, p, s, d, c, S_t, S_v, S_o] / value(M.Efficiency[r, c, S_t, S_v, S_o])
         for S_t, S_v in M.commodityDStreamProcess[r, p, c] if S_t in M.tech_exports and S_t not in M.tech_annual
@@ -714,8 +719,13 @@ def ImportShare_Constraint(M, r, p, c):
         for s in M.time_season
         for d in M.time_of_day
     )
+    export_e_annual = sum(
+        M.V_FlowOutAnnual[r, p, c, S_t, S_v, S_o] / value(M.Efficiency[r, c, S_t, S_v, S_o])
+        for S_t, S_v in M.commodityDStreamProcess[r, p, c] if S_t in M.tech_exports and S_t in M.tech_annual
+        for S_o in M.ProcessOutputsByInput[r, p, S_t, S_v, c]
+    )
 
-    net_import_e = import_e - export_e
+    net_import_e = import_e + import_e_annual - export_e - export_e_annual
 
     expr = M.V_ImportShare[r, p, c] == net_import_e
 
@@ -2623,12 +2633,14 @@ NOT in the :code:`tech_annual` set) are considered.
     inp = sum(
         M.V_FlowOut[r, p, s, d, i, t, v, S_o] / value(M.Efficiency[r, i, t, v, S_o])
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, s, d, i, t, v, S_o) in M.V_FlowOut
     )
 
     total_inp = sum(
         M.V_FlowOut[r, p, s, d, S_i, t, v, S_o] / value(M.Efficiency[r, S_i, t, v, S_o])
         for S_i in M.processInputs[r, p, t, v]
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, s, d, S_i, t, v, S_o) in M.V_FlowOut
     )
 
     expr = inp >= M.TechInputSplit[r, p, i, t] * total_inp
@@ -2645,12 +2657,14 @@ of the :math:`tech_annual` set) are considered.
     inp = sum(
         M.V_FlowOutAnnual[r, p, i, t, v, S_o] / value(M.Efficiency[r, i, t, v, S_o])
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, i, t, v, S_o) in M.V_FlowOutAnnual
     )
 
     total_inp = sum(
         M.V_FlowOutAnnual[r, p, S_i, t, v, S_o] / value(M.Efficiency[r, S_i, t, v, S_o])
         for S_i in M.processInputs[r, p, t, v]
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, S_i, t, v, S_o) in M.V_FlowOutAnnual
     )
 
     expr = inp >= M.TechInputSplit[r, p, i, t] * total_inp
@@ -2671,6 +2685,7 @@ the constraint only fixes the input shares over the course of a year.
         for s in M.time_season
         for d in M.time_of_day
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, s, d, i, t, v, S_o) in M.V_FlowOut
     )
 
     total_inp = sum(
@@ -2679,6 +2694,7 @@ the constraint only fixes the input shares over the course of a year.
         for d in M.time_of_day
         for S_i in M.processInputs[r, p, t, v]
         for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        if (r, p, s, d, S_i, t, v, S_o) in M.V_FlowOut
     )
 
 
