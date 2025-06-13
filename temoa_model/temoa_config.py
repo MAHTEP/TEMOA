@@ -240,6 +240,9 @@ class TemoaConfig( object ):
 		'how_to_cite',
 		'version',
 		'solver',
+		'method',
+		'threads',
+		'tee',
 		'neos',
 		'keep_pyomo_lp_file',
 		'saveEXCEL',
@@ -290,13 +293,16 @@ class TemoaConfig( object ):
 		self.scenario         = None
 		self.saveEXCEL        = False
 		self.myopic           = False
-		self.myopic_periods     = 0
+		self.myopic_periods   = 0
 		self.KeepMyopicDBs    = False
 		self.saveDUALS     	  = False
 		self.saveTEXTFILE     = False
 		self.how_to_cite      = None
 		self.version          = False
 		self.neos             = False
+		self.method           = None
+		self.threads          = None
+		self.tee       	      = False
 		self.generateSolverLP = False
 		self.keepPyomoLP      = False
 		self.mga_slack        = None # MGA slack value
@@ -333,7 +339,7 @@ class TemoaConfig( object ):
 			self.solver = None
 
 	def __repr__(self):
-		width = 25
+		width = 30
 		spacer = '-'*width + '\n'
 		msg = spacer
 		msg += '{:>{}s}: {}\n'.format('Config file', width, self.file_location)
@@ -353,7 +359,10 @@ class TemoaConfig( object ):
 		msg += '{:>{}s}: {}\n'.format('NEOS status', width, self.neos)
 		msg += '{:>{}s}: {}\n'.format('Version output status', width, self.version)
 		msg += spacer
-		msg += '{:>{}s}: {}\n'.format('Selected solver status', width, self.solver)
+		msg += '{:>{}s}: {}\n'.format('Selected solver', width, self.solver)
+		msg += '{:>{}s}: {}\n'.format('Selected optimization method', width, self.method)
+		msg += '{:>{}s}: {}\n'.format('Selected number of threads', width, self.threads)
+		msg += '{:>{}s}: {}\n'.format('Solver outputs status', width, self.tee)
 		msg += '{:>{}s}: {}\n'.format('Solver LP write status', width, self.generateSolverLP)
 		msg += '{:>{}s}: {}\n'.format('Pyomo LP write status', width, self.keepPyomoLP)
 		if self.mga_slack != None:
@@ -443,6 +452,18 @@ class TemoaConfig( object ):
 	def t_solver(self, t):
 		r'--solver[\s\=]+\w+\b'
 		self.solver = t.value.replace('=', ' ').split()[1]
+
+	def t_method(self, t):
+		r'--method[\s\=]+\w+\b'
+		self.method = t.value.replace('=', ' ').split()[1]
+
+	def t_threads(self, t):
+		r'--threads[\s\=]+\w+\b'
+		self.threads = t.value.replace('=', ' ').split()[1]
+
+	def t_tee(self, t):
+		r'--tee\b'
+		self.tee = True
 
 	def t_keep_pyomo_lp_file(self, t):
 		r'--keep_pyomo_lp_file\b'

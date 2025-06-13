@@ -45,6 +45,9 @@
 # Solver-related arguments (Optional)
 #--neos                            # Optional, specify if you want to use NEOS server to solve
 --solver=gurobi                    # Optional, indicate the solver
+#--method=2                        # Optional, indicate the optimization method
+#--threads=10                      # Optional, indicate the number of threads for the solver
+#--tee                             # Optional, display solver outputs
 #--keep_pyomo_lp_file              # Optional, generate Pyomo-compatible LP file
 
 # Modeling-to-Generate Alternatives (Optional)

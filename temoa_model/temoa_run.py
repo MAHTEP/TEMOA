@@ -689,10 +689,14 @@ class TemoaSolverInstance(object):
 				if self.options.neos:
 					self.result = self.optimizer.solve(self.instance, opt=self.options.solver)
 				else:
-					#self.optimizer.set_options('Method=2')  # Barrier Algorithm
+					if hasattr(self.options, 'method') and self.options.method is not None:
+						self.optimizer.options['Method'] = self.options.method  	# Optimization Method
+					if hasattr(self.options, 'threads') and self.options.threads is not None:
+						self.optimizer.options['Threads'] = self.options.threads  	# Number of threads
 					self.result = self.optimizer.solve( self.instance, suffixes=['dual'],# 'rc', 'slack'],
-								keepfiles=self.options.keepPyomoLP,
-								symbolic_solver_labels=self.options.keepPyomoLP, tee=False)
+														keepfiles=self.options.keepPyomoLP,
+														symbolic_solver_labels=self.options.keepPyomoLP,
+														tee=self.options.tee )
 				yield '\t\t\t\t\t\t[%8.2f]\n' % duration()
 				SE.write( '\r[%8.2f]\n' % duration() )
 				self.txt_file.write( '[%8.2f]\n' % duration() )
