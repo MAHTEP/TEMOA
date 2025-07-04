@@ -21,7 +21,7 @@ def run(args):
     with open('temoa_model/config_sample_' + input_file[0:-7] + '_' + str(serie), "r") as file:
         lines = file.readlines()
     
-    input_line = '--input=data_files/' + input_file + '\n'
+    input_line = '--input=data_files/' + output_file + '\n'
     lines = [input_line if line.startswith('--input=') else line for line in lines]
     output_line = '--output=data_files/' + output_file + '\n'
     lines = [output_line if line.startswith('--output=') else line for line in lines]
