@@ -192,6 +192,9 @@ def temoa_create_model(name="Temoa"):
     )
     M.CostVariableVintageDefault = Param(M.CostVariableVintageDefault_rtv)
 
+    M.CostEmission_rpe = Set(dimen=3, initialize=CostEmissionIndices)
+    M.CostEmission = Param(M.CostEmission_rpe, mutable=True, default=0)
+
     M.initialize_Costs = BuildAction(rule=CreateCosts)
 
     M.DiscountRate_rtv = Set(dimen=3, initialize=lambda M: M.CostInvest.keys())

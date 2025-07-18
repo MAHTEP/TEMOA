@@ -393,7 +393,41 @@ def TotalCost_Constraint(M, r, p):
         for S_o in M.ProcessOutputsByInput[S_r, S_p, S_t, S_v, S_i]
     )
 
-    costs_rp = loan_costs + fixed_costs + variable_costs + variable_costs_annual
+    emission_costs = sum(
+        M.V_FlowOut[S_r, p, s, d, S_i, S_t, S_v, S_o] * M.EmissionActivity[S_r, S_e, S_i, S_t, S_v, S_o]
+        * (
+            value(M.CostEmission[S_r, p, S_e])
+            * (
+                value(MPL[S_r, p, S_t, S_v])
+                if not GDR
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
+            )
+        )
+        for S_r, S_e, S_i, S_t, S_v, S_o in M.EmissionActivity.sparse_iterkeys()
+        if S_r == r and S_t not in M.tech_annual
+        if (S_r, p, S_t, S_v) in M.processInputs.keys()
+        if (S_r, p, S_t, S_v, S_i) in M.ProcessOutputsByInput.keys()
+        for s in M.time_season
+        for d in M.time_of_day
+    )
+
+    emission_costs_annual = sum(
+        M.V_FlowOutAnnual[S_r, p, S_i, S_t, S_v, S_o] * M.EmissionActivity[S_r, S_e, S_i, S_t, S_v, S_o]
+        * (
+            value(M.CostEmission[S_r, p, S_e])
+            * (
+                value(MPL[S_r, p, S_t, S_v])
+                if not GDR
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
+            )
+        )
+        for S_r, S_e, S_i, S_t, S_v, S_o in M.EmissionActivity.sparse_iterkeys()
+        if S_r == r and S_t in M.tech_annual
+        if (S_r, p, S_t, S_v) in M.processInputs.keys()
+        if (S_r, p, S_t, S_v, S_i) in M.ProcessOutputsByInput.keys()
+    )
+
+    costs_rp = loan_costs + fixed_costs + variable_costs + variable_costs_annual + emission_costs + emission_costs_annual
 
     expr = M.V_Costs_rp[r, p] == costs_rp
 
@@ -424,77 +458,111 @@ def PeriodCost_rule(M, p):
 
 
     loan_costs = sum(
-        M.V_Capacity[r, S_t, S_v]
+        M.V_Capacity[S_r, S_t, S_v]
         * (
-            value(M.CostInvest[r, S_t, S_v])
-            * value(M.LoanAnnualize[r, S_t, S_v])
+            value(M.CostInvest[S_r, S_t, S_v])
+            * value(M.LoanAnnualize[S_r, S_t, S_v])
             * (
-                value(M.LifetimeLoanProcess[r, S_t, S_v])
+                value(M.LifetimeLoanProcess[S_r, S_t, S_v])
                 if not GDR
                 else (
                     x ** (P_0 - S_v + 1)
-                    * (1 - x ** (-value(M.LifetimeLoanProcess[r, S_t, S_v])))
+                    * (1 - x ** (-value(M.LifetimeLoanProcess[S_r, S_t, S_v])))
                     / GDR
                 )
             )
         )
         * (
-            (1 - x ** (-min(value(M.LifetimeProcess[r, S_t, S_v]), P_e - S_v)))
-            / (1 - x ** (-value(M.LifetimeProcess[r, S_t, S_v])))
+            (1 - x ** (-min(value(M.LifetimeProcess[S_r, S_t, S_v]), P_e - S_v)))
+            / (1 - x ** (-value(M.LifetimeProcess[S_r, S_t, S_v])))
         )
-        for r, S_t, S_v in M.CostInvest.sparse_iterkeys()
+        for S_r, S_t, S_v in M.CostInvest.sparse_iterkeys()
         if S_v == p
     )
 
     fixed_costs = sum(
-        M.V_Capacity[r, S_t, S_v]
+        M.V_Capacity[S_r, S_t, S_v]
         * (
-            value(M.CostFixed[r, p, S_t, S_v])
+            value(M.CostFixed[S_r, p, S_t, S_v])
             * (
-                value(MPL[r, p, S_t, S_v])
+                value(MPL[S_r, p, S_t, S_v])
                 if not GDR
-                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[r, p, S_t, S_v]))) / GDR)
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
             )
         )
-        for r, S_p, S_t, S_v in M.CostFixed.sparse_iterkeys()
+        for S_r, S_p, S_t, S_v in M.CostFixed.sparse_iterkeys()
         if S_p == p
     )
 
     variable_costs = sum(
-        M.V_FlowOut[r, p, s, d, S_i, S_t, S_v, S_o]
+        M.V_FlowOut[S_r, p, s, d, S_i, S_t, S_v, S_o]
         * (
-            value(M.CostVariable[r, p, S_t, S_v])
+            value(M.CostVariable[S_r, p, S_t, S_v])
             * (
-                value(MPL[r, p, S_t, S_v])
+                value(MPL[S_r, p, S_t, S_v])
                 if not GDR
-                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[r, p, S_t, S_v]))) / GDR)
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
             )
         )
-        for r, S_p, S_t, S_v in M.CostVariable.sparse_iterkeys()
+        for S_r, S_p, S_t, S_v in M.CostVariable.sparse_iterkeys()
         if S_p == p and S_t not in M.tech_annual
-        for S_i in M.processInputs[r, S_p, S_t, S_v]
-        for S_o in M.ProcessOutputsByInput[r, S_p, S_t, S_v, S_i]
+        for S_i in M.processInputs[S_r, S_p, S_t, S_v]
+        for S_o in M.ProcessOutputsByInput[S_r, S_p, S_t, S_v, S_i]
         for s in M.time_season
         for d in M.time_of_day
     )
 
     variable_costs_annual = sum(
-        M.V_FlowOutAnnual[r, p, S_i, S_t, S_v, S_o]
+        M.V_FlowOutAnnual[S_r, p, S_i, S_t, S_v, S_o]
         * (
-            value(M.CostVariable[r, p, S_t, S_v])
+            value(M.CostVariable[S_r, p, S_t, S_v])
             * (
-                value(MPL[r, p, S_t, S_v])
+                value(MPL[S_r, p, S_t, S_v])
                 if not GDR
-                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[r, p, S_t, S_v]))) / GDR)
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
             )
         )
-        for r, S_p, S_t, S_v in M.CostVariable.sparse_iterkeys()
+        for S_r, S_p, S_t, S_v in M.CostVariable.sparse_iterkeys()
         if S_p == p and S_t in M.tech_annual
-        for S_i in M.processInputs[r, S_p, S_t, S_v]
-        for S_o in M.ProcessOutputsByInput[r, S_p, S_t, S_v, S_i]
+        for S_i in M.processInputs[S_r, S_p, S_t, S_v]
+        for S_o in M.ProcessOutputsByInput[S_r, S_p, S_t, S_v, S_i]
     )
 
-    period_costs = loan_costs + fixed_costs + variable_costs + variable_costs_annual
+    emission_costs = sum(
+        M.V_FlowOut[S_r, p, s, d, S_i, S_t, S_v, S_o] * M.EmissionActivity[S_r, S_e, S_i, S_t, S_v, S_o]
+        * (
+            value(M.CostEmission[S_r, p, S_e])
+            * (
+                value(MPL[S_r, p, S_t, S_v])
+                if not GDR
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
+            )
+        )
+        for S_r, S_e, S_i, S_t, S_v, S_o in M.EmissionActivity.sparse_iterkeys()
+        if S_t not in M.tech_annual
+        if (S_r, p, S_t, S_v) in M.processInputs.keys()
+        if (S_r, p, S_t, S_v, S_i) in M.ProcessOutputsByInput.keys()
+        for s in M.time_season
+        for d in M.time_of_day
+    )
+
+    emission_costs_annual = sum(
+        M.V_FlowOutAnnual[S_r, p, S_i, S_t, S_v, S_o] * M.EmissionActivity[S_r, S_e, S_i, S_t, S_v, S_o]
+        * (
+            value(M.CostEmission[S_r, p, S_e])
+            * (
+                value(MPL[S_r, p, S_t, S_v])
+                if not GDR
+                else (x ** (P_0 - p + 1) * (1 - x ** (-value(MPL[S_r, p, S_t, S_v]))) / GDR)
+            )
+        )
+        for S_r, S_e, S_i, S_t, S_v, S_o in M.EmissionActivity.sparse_iterkeys()
+        if S_t in M.tech_annual
+        if (S_r, p, S_t, S_v) in M.processInputs.keys()
+        if (S_r, p, S_t, S_v, S_i) in M.ProcessOutputsByInput.keys()
+    )
+
+    period_costs = loan_costs + fixed_costs + variable_costs + variable_costs_annual + emission_costs + emission_costs_annual
     return period_costs
 
 

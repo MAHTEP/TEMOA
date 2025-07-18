@@ -841,6 +841,17 @@ def CostInvestIndices ( M ):
 
 	return indices
 
+def CostEmissionIndices ( M ):
+	indices = set(
+	  (r, p, e)
+
+	  for r in M.regions
+	  for p in M.time_optimize
+      for e in M.commodity_emissions
+	)
+
+	return indices
+
 def EmissionActivityIndices ( M ):
 	indices = set(
 	  (r, e, i, t, v, o)
