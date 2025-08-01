@@ -2707,7 +2707,7 @@ NOT in the :code:`tech_annual` set) are considered.
     total_inp = sum(
         M.V_FlowOut[r, p, s, d, S_i, t, v, S_o] / value(M.Efficiency[r, S_i, t, v, S_o])
         for S_i in M.processInputs[r, p, t, v]
-        for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        for S_o in M.ProcessOutputsByInput[r, p, t, v, S_i]
         if (r, p, s, d, S_i, t, v, S_o) in M.V_FlowOut
     )
 
@@ -2731,7 +2731,7 @@ of the :math:`tech_annual` set) are considered.
     total_inp = sum(
         M.V_FlowOutAnnual[r, p, S_i, t, v, S_o] / value(M.Efficiency[r, S_i, t, v, S_o])
         for S_i in M.processInputs[r, p, t, v]
-        for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        for S_o in M.ProcessOutputsByInput[r, p, t, v, S_i]
         if (r, p, S_i, t, v, S_o) in M.V_FlowOutAnnual
     )
 
@@ -2761,7 +2761,7 @@ the constraint only fixes the input shares over the course of a year.
         for s in M.time_season
         for d in M.time_of_day
         for S_i in M.processInputs[r, p, t, v]
-        for S_o in M.ProcessOutputsByInput[r, p, t, v, i]
+        for S_o in M.ProcessOutputsByInput[r, p, t, v, S_i]
         if (r, p, s, d, S_i, t, v, S_o) in M.V_FlowOut
     )
 
