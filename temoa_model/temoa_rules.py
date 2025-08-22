@@ -2935,14 +2935,23 @@ the primary region corresponds to the linked technology as well. The lifetimes
 of the primary and linked technologies should be specified and identical.
 """
     linked_t = M.LinkedTechs[r, t, e]
-    if (r,t,v) in M.LifetimeProcess.keys() and M.LifetimeProcess[r, linked_t,v] != M.LifetimeProcess[r, t,v]:
-        msg = ('the LifetimeProcess values of the primary and linked technologies '
-          'in the LinkedTechs table have to be specified and identical')
-        raise Exception( msg )
-    if (r,t) in M.LifetimeTech.keys() and M.LifetimeTech[r, linked_t] != M.LifetimeTech[r, t]:
-        msg = ('the LifetimeTech values of the primary and linked technologies '
-          'in the LinkedTechs table have to be specified and identical')
-        raise Exception( msg )
+    if (r, t, v) in M.LifetimeProcess:
+        lt1 = M.LifetimeProcess[r, linked_t, v]
+        lt2 = M.LifetimeProcess[r, t, v]
+
+        if value(lt1) != value(lt2):
+            msg = ('the LifetimeProcess values of the primary and linked technologies '
+                'in the LinkedTechs table have to be specified and identical')
+            raise Exception(msg)
+
+    if (r, t) in M.LifetimeTech:
+        lt1 = M.LifetimeTech[r, linked_t]
+        lt2 = M.LifetimeTech[r, t]
+
+        if value(lt1) != value(lt2):
+            msg = ('the LifetimeTech values of the primary and linked technologies '
+                'in the LinkedTechs table have to be specified and identical')
+            raise Exception(msg)
 
     primary_flow = sum(
     M.V_FlowOut[r, p, s, d, S_i, t, v, S_o]*M.EmissionActivity[r, e, S_i, t, v, S_o]

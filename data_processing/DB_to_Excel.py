@@ -44,7 +44,7 @@ def make_excel(ifile, ofile, scenario):
 		sector_techs = all_techs[all_techs['sector']==sector]
 		df_capacity_sector = pd.merge(sector_techs[['regions','tech']], df_capacity_sector, on=['regions','tech'], how='left')
 		df_capacity_sector.rename(columns={'regions':'Region','tech':'Technology'}, inplace=True)
-		df_capacity_sector.to_excel(writer, sheet_name='Capacity_' + sector, index=False, encoding='utf-8', startrow=1, header=False)
+		df_capacity_sector.to_excel(writer, sheet_name='Capacity_' + sector, index=False, startrow=1, header=False)
 		worksheet = writer.sheets['Capacity_' + sector]
 		worksheet.set_column('A:A', 10)
 		worksheet.set_column('B:B', 10)
@@ -61,7 +61,7 @@ def make_excel(ifile, ofile, scenario):
 		sector_techs = all_techs[all_techs['sector']==sector]
 		df_activity_sector = pd.merge(sector_techs[['regions','tech']], df_activity_sector, on=['regions','tech'], how='left')
 		df_activity_sector.rename(columns={'regions':'Region','tech':'Technology'}, inplace=True)
-		df_activity_sector.to_excel(writer, sheet_name='Activity_' + sector, index=False, encoding='utf-8', startrow=1, header=False)
+		df_activity_sector.to_excel(writer, sheet_name='Activity_' + sector, index=False, startrow=1, header=False)
 		worksheet = writer.sheets['Activity_' + sector]
 		worksheet.set_column('A:A', 10)
 		worksheet.set_column('B:B', 10)
@@ -79,7 +79,7 @@ def make_excel(ifile, ofile, scenario):
 	df_emissions.reset_index(inplace=True)
 	df_emissions = pd.merge(all_emis_techs, df_emissions, on=['regions','tech', 'sector', 'emissions_comm'], how='left')
 	df_emissions.rename(columns={'regions':'Region', 'tech':'Technology', 'emissions_comm':'Emission Commodity', 'sector':'Sector'}, inplace=True)
-	df_emissions.to_excel(writer, sheet_name='Emissions', index=False, encoding='utf-8', startrow=1, header=False)
+	df_emissions.to_excel(writer, sheet_name='Emissions', index=False, startrow=1, header=False)
 	worksheet = writer.sheets['Emissions']
 	worksheet.set_column('A:A', 10)
 	worksheet.set_column('B:B', 10)
@@ -91,7 +91,7 @@ def make_excel(ifile, ofile, scenario):
 	query = "SELECT regions, tech, sector, output_name,  vintage, output_cost FROM Output_Costs WHERE output_name LIKE '%V_Discounted%' AND scenario='" + scenario + "'"
 	df_costs = pd.read_sql_query(query, con)
 	df_costs.columns = ['Region', 'Technology', 'Sector','Output Name', 'Vintage', 'Cost']
-	df_costs.to_excel(writer, sheet_name='Costs', index=False, encoding='utf-8', startrow=1, header=False)
+	df_costs.to_excel(writer, sheet_name='Costs', index=False, startrow=1, header=False)
 	worksheet = writer.sheets['Costs']
 	worksheet.set_column('A:A', 10)
 	worksheet.set_column('B:B', 10)

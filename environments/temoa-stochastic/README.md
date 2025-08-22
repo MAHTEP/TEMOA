@@ -21,31 +21,41 @@ Ensure you have the following installed on your system:
    ```
 
 ### Step 2: Install Editable Packages
-Unzip `pyomo-main`, `pysp-main` and `mpi-sppy-main`. Navigate to the unzipped folders and run the installation command.
+Unzip `pyomo-main`, `pysp-main` and `mpi-sppy-main` and place the corresponding folders in a location where they can be safely stored. Navigate to those folders and run the installation with the following commands.
 
 1. 
    ```bash
    cd ../pyomo-main
-   pip install -e .
    ```
 
 2. 
    ```bash
-   cd ../pysp-main
    pip install -e .
    ```
 
 3. 
    ```bash
+   cd ../pysp-main
+   ```
+4. 
+   ```bash
+   pip install -e .
+   ```
+
+5. 
+   ```bash
    cd ../mpi-sppy-main
+   ```
+
+6. 
+   ```bash
    pip install -e .
    ```
 
 ### Step 3: Replace Model Files
 1. Navigate to the `temoa_model` folder within your project directory.
-2. Replace the following files with the updated versions:
-   - `temoa_run.py`
-   - `temoa_stochastic.py`
+2. Replace the temoa_run.py file with the version provided here:
+   - `../environments/temoa-stochastic/temoa_run.py`
 
 ### Step 4: Update Configuration File
 1. Navigate to the `temoa_model` folder within your project directory.
