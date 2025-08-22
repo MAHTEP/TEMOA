@@ -192,7 +192,7 @@ def validate_time ( M ):
 
 def validate_SegFrac ( M ):
 
-	total = sum( i for i in M.SegFrac.itervalues() )
+	total = sum( i for i in M.SegFrac.values() )
 
 	if abs(float(total) - 1.0) > 0.001:
 		# We can't explicitly test for "!= 1.0" because of incremental rounding
@@ -377,7 +377,7 @@ def CreateDemands ( M ):
 		# DDD._constructed = True
 
 	# Step 3
-	total = sum( i for i in DDD.itervalues() )
+	total = sum( i for i in DDD.values() )
 	if abs(value(total) - 1.0) > 0.001:
 		# We can't explicitly test for "!= 1.0" because of incremental rounding
 		# errors associated with the specification of demand shares by time slice, 

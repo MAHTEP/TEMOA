@@ -235,7 +235,7 @@ def temoa_create_model(name="Temoa"):
     M.MaxInputGroup = Param(M.RegionalIndices, M.time_optimize, M.commodity_physical, M.groups)
     M.MinOutputGroup = Param(M.RegionalIndices, M.time_optimize, M.commodity_physical, M.groups)
     M.MaxOutputGroup = Param(M.RegionalIndices, M.time_optimize, M.commodity_physical, M.groups)
-    M.LinkedTechs = Param(M.RegionalIndices, M.tech_all, M.commodity_emissions)
+    M.LinkedTechs = Param(M.RegionalIndices, M.tech_all, M.commodity_emissions, within=Any)
 
     # Define parameters associated with electric sector operation
     M.RampUp = Param(M.regions, M.tech_ramping)

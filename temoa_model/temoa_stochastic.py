@@ -25,15 +25,16 @@ from temoa_initialize import Var, Objective, Constraint, NonNegativeReals, minim
 from temoa_model import temoa_create_model
 from temoa_rules import PeriodCost_rule
 from temoa_run import parse_args
-from pformat_results import pformat_results
 from pyomo.environ import *
-from pyomo.pysp.scenariotree.manager import \
-    ScenarioTreeManagerClientSerial
-from pyomo.pysp.ef import create_ef_instance
+import pyomo.environ as pyo
+from pformat_results import pformat_results
 from pyomo.opt import SolverFactory
 from time import time
-import os
-import sys
+import os, sys
+from mpisppy.utils.pysp_model import PySPModel
+from mpisppy.opt.ph import PH
+import mpisppy.utils.sputils as sputils
+from mpisppy.opt.ef import ExtensiveForm
 
 
 def return_CP_and_path(p_data):
@@ -44,8 +45,9 @@ def return_CP_and_path(p_data):
     # scenario.
     from collections import deque, defaultdict
     # from pyomo.pysp.util.scenariomodels import scenario_tree_model
-    from pyomo.pysp.scenariotree.tree_structure_model import \
+    from pysp.scenariotree.tree_structure_model import \
     CreateAbstractScenarioTreeModel
+
 
     pwd = os.getcwd()
     os.chdir(p_data)
@@ -77,7 +79,7 @@ def return_CP_and_path(p_data):
     root_node = (set( ctpTree.values() ) - set( ctpTree.keys() )).pop()
     
     # ptcTree = defaultdict( list ) # Parent to child node, one to multiple mapping
-    # for c, p in ctpTree.items():
+    # for c, p in ctpTree.iteritems():
     #         ptcTree[ p ].append( c )
     # ptcTree = dict( ptcTree )   # be slightly defensive; catch any additions
     
@@ -115,75 +117,90 @@ def return_CP_and_path(p_data):
     os.chdir(pwd)
     return (s2cd_dict, s2fp_dict)
 
-def solve_ef(p_model, p_data, temoa_options = None):
-    """
-    solve_ef(p_model, p_data) -> objective value of the extensive form
-    Solves the model in stochastic mode. 
-    p_model -> string, the path to the model file (ReferenceModel.py). 
-    p_data -> string, the path to the directory of data for the stochastic
-    mdoel, where ScenarioStructure.dat should resides.
-    Returns a float point number of the value of objective function for the
-    stochastic program model.
-    """
 
-    options = ScenarioTreeManagerClientSerial.register_options()
+import argparse, sys
+import os, re
+from os.path import dirname, abspath
 
-    if os.path.basename(p_model) == 'ReferenceModel.py':
-        options.model_location = os.path.dirname(p_model)
-    else:
-        sys.stderr.write('\nModel file should be ReferenceModel.py. Exiting...\n')
-        sys.exit(1)
-    options.scenario_tree_location = p_data
-
-    # using the 'with' block will automatically call
-    # manager.close() and gracefully shutdown
-    with ScenarioTreeManagerClientSerial(options) as manager:
-        manager.initialize()
+def solve_ef(model, p_dot_dat, data_dir, temoa_options):
+    sys.path.insert(0, r"C:\Program Files\IBM\ILOG\CPLEX_Studio2211\cplex\bin\x64_win64\cplex.exe") 
+    Instance = PySPModel(model=model, scenario_tree=p_dot_dat, data_dir=data_dir)   
     
-        ef_instance = create_ef_instance(manager.scenario_tree,
-                                         verbose_output=options.verbose)
-    
-        ef_instance.dual = Suffix(direction=Suffix.IMPORT)
-    
-        with SolverFactory(temoa_options.solver) as opt:
-    
-            ef_result = opt.solve(ef_instance)
+    temoa_options.solver="gurobi"
+    options = {"solver": temoa_options.solver,
+           'verbose': True,
+           'display_progress': True,
+           'display_timing': True}
+    ef = ExtensiveForm(options, Instance.all_scenario_names, Instance.scenario_creator,all_nodenames=Instance.all_nodenames)
 
-        # Write to database
-        if hasattr(temoa_options, 'output'):
-            sys.path.append(options.model_location)
+#ScaleFlag most used to scale the objective function 
 
-            # from temoa_config import TemoaConfig
-            # temoa_options = TemoaConfig()
-            # temoa_options.config = temoa_options.config
-            # temoa_options.keepPyomoLP = temoa_options.keepPyomoLP
-            # temoa_options.saveTEXTFILE = temoa_options.saveTEXTFILE
-            # temoa_options.path_to_data = temoa_options.path_to_data
-            # temoa_options.saveEXCEL = temoa_options.saveEXCEL
-            ef_result.solution.Status = 'feasible' # Assume it is feasible
-            # Maybe there is a better solution using manager, but now it is a 
-            # kludge to use return_CP_and_path() function
-            s2cd_dict, s2fp_dict = return_CP_and_path(p_data)
-            stochastic_run = temoa_options.scenario # Name of stochastic run
-            for s in manager.scenario_tree.scenarios:
-                ins = s._instance
-                temoa_options.scenario = '.'.join( [stochastic_run, s.name] )
-                temoa_options.dot_dat = list()
-                for fname in s2fp_dict[s.name]:
-                    temoa_options.dot_dat.append(
-                        os.path.join(options.scenario_tree_location, fname)
-                    )
-                # temoa_options.output = os.path.join(
-                #     options.scenario_tree_location, 
-                #     stochastic_output
-                #     )
-                msg = '\nStoring results from scenario {} to database.\n'.format(s.name)
-                sys.stderr.write(msg)
-                formatted_results = pformat_results( ins, ef_result, temoa_options )
+    #Option that work for the NC 2^6 case: Takes 24h to solve about 2h to load the data and 19-22h to solve
+    #uses about 140GB of memory however, during ordering has a peak of 400GB that last 10min
+    solver_options={'Threads':22, "Method":2, "crossover":0,"BarHomogeneous":1,"PreSparsify":2, "BarConvTol":5e-8,"ScaleFlag":2} #gurobi
 
-    ef_instance.solutions.store_to( ef_result )
-    ef_obj = value( ef_instance.EF_EXPECTED_COST.values()[0] )
-    return ef_obj
+
+    #solver_options={'Threads':5, "Method":2, "crossover":0,"BarHomogeneous":1,"PreSparsify":2, "BarConvTol":5e-8,"ScaleFlag":2, "BarOrder":0} #3^6 case works
+    
+    #solver_options={'Threads':22, "lpmethod":4,"solutiontype":2,"barrier_convergetol":2.5e-7, "preprocessing_dual": -1,"barrier_colnonzeros":90+2*len(Instance.all_scenario_names),"barrier_startalg":3} #Cplex
+    ef_result=ef.solve_extensive_form(tee=True,solver_options=solver_options)
+        
+    # Write to database
+    if hasattr(temoa_options, 'output'):
+        sys.path.append(data_dir)
+    
+        ef_result.solution.Status = 'feasible' # Assume it is feasible
+        s2cd_dict, s2fp_dict = return_CP_and_path(os.path.dirname(p_dot_dat))
+
+        stochastic_run = temoa_options.scenario # Name of stochastic run  
+
+        for sname, s in ef.scenarios():
+             
+            temoa_options.scenario = '.'.join( [stochastic_run, s.name] )
+            
+            temoa_options.dot_dat = list()
+            
+            
+            for fname in s2fp_dict[s.name]:
+                
+                temoa_options.dot_dat.append(os.path.join(data_dir, fname))
+    
+            msg = '\nStoring results from scenario {} to database.\n'.format(s.name)
+            sys.stderr.write(msg)
+
+            formatted_results = pformat_results( s, ef_result, temoa_options )
+
+    return ef.get_objective_value()
+
+
+def solve_ph(model, p_dot_dat, data_dir, temoa_options):
+
+    Instance = PySPModel(model=model, scenario_tree=p_dot_dat, data_dir=data_dir)   
+
+    phoptions = {'defaultPHrho': 1.0,
+             'solver_name':temoa_options.solver,
+             'PHIterLimit': 50,
+             'convthresh': 0.01,
+             'verbose': False,
+             'display_progress': True,
+             'display_timing': True,
+             'iter0_solver_options': None,
+             'iterk_solver_options': None
+             }
+
+    ph = PH( options = phoptions,
+            all_scenario_names = Instance.all_scenario_names,
+            scenario_creator = Instance.scenario_creator,
+            all_nodenames=Instance.all_nodenames,
+            scenario_denouement = Instance.scenario_denouement,
+            )
+
+    ph_result=ph.ph_main()
+
+    #Need work to write outputs
+
+    return 0
+
 
 def StochasticPointObjective_rule ( M, p ):
     expr = ( M.StochasticPointCost[ p ] == PeriodCost_rule( M, p ) )
@@ -192,18 +209,24 @@ def StochasticPointObjective_rule ( M, p ):
 def Objective_rule ( M ):
     return sum( M.StochasticPointCost[ pp ] for pp in M.time_optimize )
 
-M = model = temoa_create_model( 'TEMOA Stochastic' )
+model = temoa_create_model( 'TEMOA Stochastic' )
 
-M.StochasticPointCost = Var( M.time_optimize, within=NonNegativeReals )
-M.StochasticPointCostConstraint = Constraint( M.time_optimize, rule=StochasticPointObjective_rule )
+model.StochasticPointCost = Var( model.time_optimize, within=NonNegativeReals )
+model.StochasticPointCostConstraint = Constraint( model.time_optimize, rule=StochasticPointObjective_rule )
 
-del M.TotalCost
-M.TotalCost = Objective( rule=Objective_rule, sense=minimize )
+del model.TotalCost
+model.TotalCost = Objective( rule=Objective_rule, sense=minimize )
+
 
 if __name__ == "__main__":
-    p_model = "./ReferenceModel.py"
+    
     temoa_options, config_flag = parse_args()
     p_dot_dat = temoa_options.dot_dat[0] # must be ScenarioStructure.dat
-    p_data = os.path.dirname(p_dot_dat)
-    print(p_model, p_data)
-    print(solve_ef(p_model, p_data, temoa_options))
+    data_dir  = os.path.normpath(p_dot_dat + os.sep + os.pardir) #folder where the scenarios are
+    
+
+    print(p_dot_dat, data_dir)
+    
+    print(solve_ef(model, p_dot_dat, data_dir, temoa_options))
+    #solve_ph(model, p_dot_dat, data_dir, temoa_options) #For now this does not save the results (future work) PH not faster than EF and not saving memory
+    
