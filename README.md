@@ -6,22 +6,28 @@ This is an extended version of the [TEMOA](https://temoacloud.com/) (Tools for E
 This model version is maintained by the by the [MAHTEP Group](http://www.mahtep.polito.it/) at the Department of Energy of [Politecnico di Torino](https://www.polito.it/) and at the Department of Economics and Statistic of [Università degli Studi di Torino](https://www.unito.it/).
 The group is lead by Prof. [Laura Savoldi](http://www.mahtep.polito.it/people/coordinators/savoldi_laura) ad Prof. [Valeria di Cosmo](http://www.mahtep.polito.it/people/coordinators/di_cosmo_valeria). For any communication related to this TEMOA version, please write to [matteo.nicoli@polito.it](mailto:matteo.nicoli@polito.it).
 
-The public model instances based on this TEMOA version are:
+The public model instances maintained by the MAHTEP Group are:
 * [TEMOA-Europe](https://github.com/MAHTEP/TEMOA-Europe)
 * [TEMOA-Italy](https://github.com/MAHTEP/TEMOA-Italy)
 * [TEMOA-Piedmont](https://github.com/MAHTEP/TEMOA-Piedmont)
+* [TEMOA-NO4](https://github.com/MAHTEP/TEMOA-NO4)
 
 Below, the list of publications in which this version was used:
-1. A. Vai, G. Colucci, M. Nicoli, and L. Savoldi, “May the availability of critical raw materials affect the security of energy systems? An analysis for risk-aware energy planning with TEMOA-Italy,” Mater Today Energy, vol. 48, no. 101805, 2025, doi: 10.1016/j.mtener.2025.101805.
-2. F. Amir Kavei, M. Nicoli, F. Quatraro, and L. Savoldi, “Enhancing energy transition with open-source regional energy system optimization models: TEMOA-Piedmont,” Energy Convers Manag, vol. 327, p. 119536, Mar. 2025, doi: 10.1016/J.ENCONMAN.2025.119536.
-3. M. Nicoli, G. Colucci, V. Di Cosmo, D. Lerede, and L. Savoldi, “Evaluating the impact of hurdle rates on the Italian energy transition through TEMOA,” Appl Energy, vol. 377PC, no. 124633, 2024, doi: 10.1016/j.apenergy.2024.124633.
-4. M. Nicoli, V. A. D. Faria, A. R. de Queiroz, and L. Savoldi, “Modeling energy storage in long-term capacity expansion energy planning: an analysis of the Italian system,” J Energy Storage, vol. 101PA, no. 113814, 2024, doi: 10.1016/j.est.2024.113814.
-5. M. Nicoli et al., “Enabling Coherence Between Energy Policies and SDGs Through Open Energy Models: The TEMOA-Italy Example,” in Aligning the Energy Transition with the Sustainable Development Goals: Key Insights from Energy System Modelling, M. Labriet, K. Espegren, G. Giannakidis, and B. O’Gallachoir, Eds., Springer, 2024, pp. 97–118. doi: 10.1007/978-3-031-58897-6_5.
-6. D. Mosso, G. Colucci, D. Lerede, M. Nicoli, M. S. Piscitelli, and L. Savoldi, “How much do carbon emission reduction strategies comply with a sustainable development of the power sector?,” Energy Reports, vol. 11, pp. 3064–3087, Jun. 2024, doi: 10.1016/J.EGYR.2024.02.056.
-7. G. Colucci, D. Lerede, M. Nicoli, and L. Savoldi, “A dynamic accounting method for CO2 emissions to assess the penetration of low-carbon fuels: application to the TEMOA-Italy energy system optimization model,” Appl Energy, vol. 352, no. 121951, Dec. 2023, doi: 10.1016/j.apenergy.2023.121951.
-8. D. Lerede, M. Nicoli, L. Savoldi, and A. Trotta, “Analysis of the possible contribution of different nuclear fusion technologies to the global energy transition,” Energy Strategy Reviews, vol. 49, no. 101144, Sep. 2023, doi: 10.1016/j.esr.2023.101144.
-9. M. Nicoli, “A TIMES-like open-source model for the Italian energy system,” Politecnico di Torino, Turin, 2021. Accessed: Jul. 05, 2022. [Online]. Available: https://webthesis.biblio.polito.it/18850/
-10. M. Nicoli, F. Gracceva, D. Lerede, and L. Savoldi, “Can We Rely on Open-Source Energy System Optimization Models? The TEMOA-Italy Case Study,” Energies (Basel), vol. 15, no. 18, p. 6505, Sep. 2022, doi: 10.3390/en15186505.
+1. M. Cais, M. Nicoli, M. Gandiglio, L. Savoldi et al., “Hybrid superconducting energy pipelines: key cost thresholds and system implications for Italy,” Int. J. Hydrogen Energy, vol. 210, no. 153627, 2026, doi: 10.1016/j.ijhydene.2026.153627.
+2. A. Mastrantuono, M. Nicoli, V. Di Cosmo, D. Mosso, A. Rodrigo de Queiroz, and L. Savoldi, “Key determinants of nuclear fission competitiveness and implications of its potential restart for the Italian power system,” Energy, vol. 360, p. 141475, Sep. 2026, doi: 10.1016/j.energy.2026.141475.
+3. M. Nicoli et al., “A framework for global sensitivity analysis in long-term energy systems planning using optimal transport,” Energy, vol. 338, p. 138788, Nov. 2025, doi: 10.1016/J.ENERGY.2025.138788.
+4. V. Di Cosmo, M. Nicoli, D. Cottafava, and A. Vai, “Social Acceptability and Transport: An Energy System–Optimisation- Based Analysis of the European Case,” Economics of Energy and Environmental Policy, Jun. 2026, doi: 10.5547/2160-5890.15.1.MNIC.
+5. F. Amir Kavei, M. E. Alfano, M. Nicoli, F. Quatraro, and L. Savoldi, “Integrated Water-Energy Modeling in TEMOA Energy System Optimization Model: Pantelleria Case Study,” Energy Nexus, vol. 18, p. 100461, 2025, doi: 10.1016/J.NEXUS.2025.100461.
+6. A. Vai, G. Colucci, M. Nicoli, and L. Savoldi, “May the availability of critical raw materials affect the security of energy systems? An analysis for risk-aware energy planning with TEMOA-Italy,” Mater Today Energy, vol. 48, no. 101805, 2025, doi: 10.1016/j.mtener.2025.101805.
+7. F. Amir Kavei, M. Nicoli, F. Quatraro, and L. Savoldi, “Enhancing energy transition with open-source regional energy system optimization models: TEMOA-Piedmont,” Energy Convers Manag, vol. 327, p. 119536, Mar. 2025, doi: 10.1016/J.ENCONMAN.2025.119536.
+8. M. Nicoli, G. Colucci, V. Di Cosmo, D. Lerede, and L. Savoldi, “Evaluating the impact of hurdle rates on the Italian energy transition through TEMOA,” Appl Energy, vol. 377PC, no. 124633, 2024, doi: 10.1016/j.apenergy.2024.124633.
+9. M. Nicoli, V. A. D. Faria, A. R. de Queiroz, and L. Savoldi, “Modeling energy storage in long-term capacity expansion energy planning: an analysis of the Italian system,” J Energy Storage, vol. 101PA, no. 113814, 2024, doi: 10.1016/j.est.2024.113814.
+10. M. Nicoli et al., “Enabling Coherence Between Energy Policies and SDGs Through Open Energy Models: The TEMOA-Italy Example,” in Aligning the Energy Transition with the Sustainable Development Goals: Key Insights from Energy System Modelling, M. Labriet, K. Espegren, G. Giannakidis, and B. O’Gallachoir, Eds., Springer, 2024, pp. 97–118. doi: 10.1007/978-3-031-58897-6_5.
+11. D. Mosso, G. Colucci, D. Lerede, M. Nicoli, M. S. Piscitelli, and L. Savoldi, “How much do carbon emission reduction strategies comply with a sustainable development of the power sector?,” Energy Reports, vol. 11, pp. 3064–3087, Jun. 2024, doi: 10.1016/J.EGYR.2024.02.056.
+12. G. Colucci, D. Lerede, M. Nicoli, and L. Savoldi, “A dynamic accounting method for CO2 emissions to assess the penetration of low-carbon fuels: application to the TEMOA-Italy energy system optimization model,” Appl Energy, vol. 352, no. 121951, Dec. 2023, doi: 10.1016/j.apenergy.2023.121951.
+13. D. Lerede, M. Nicoli, L. Savoldi, and A. Trotta, “Analysis of the possible contribution of different nuclear fusion technologies to the global energy transition,” Energy Strategy Reviews, vol. 49, no. 101144, Sep. 2023, doi: 10.1016/j.esr.2023.101144.
+14. M. Nicoli, “A TIMES-like open-source model for the Italian energy system,” Politecnico di Torino, Turin, 2021. Accessed: Jul. 05, 2022. [Online]. Available: https://webthesis.biblio.polito.it/18850/
+15. M. Nicoli, F. Gracceva, D. Lerede, and L. Savoldi, “Can We Rely on Open-Source Energy System Optimization Models? The TEMOA-Italy Case Study,” Energies (Basel), vol. 15, no. 18, p. 6505, Sep. 2022, doi: 10.3390/en15186505.
 
 
 ## Installation Guide
