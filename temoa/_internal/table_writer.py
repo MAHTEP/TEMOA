@@ -19,8 +19,11 @@ from pyomo.opt import SolverResults
 
 from temoa._internal.exchange_tech_cost_ledger import CostType
 from temoa._internal.table_data_puller import (
+    CONSTRUCTION_INPUT,
     EI,
+    END_OF_LIFE_OUTPUT,
     FI,
+    UC_STARTUP_INPUT,
     CapData,
     FlowType,
     poll_capacity_results,
@@ -80,6 +83,8 @@ FLOW_TABLES = ('output_flow_in', 'output_flow_out', 'output_curtailment')
 PLACEHOLDERS: dict[str, frozenset[str]] = {
     'season': frozenset({ANNUAL_TIME_SLICE}),
     'tod': frozenset({ANNUAL_TIME_SLICE}),
+    'input_comm': frozenset({END_OF_LIFE_OUTPUT}),
+    'output_comm': frozenset({CONSTRUCTION_INPUT, UC_STARTUP_INPUT}),
 }
 
 MC_TWEAKS_FILE_LOC = resources.files('temoa.extensions.monte_carlo') / 'make_deltas_table.sql'
@@ -175,7 +180,11 @@ def check_flow_balance(flows: dict[FI, dict[FlowType, float]], storage: Containe
     for fi, flow_vals in flows.items():
         if fi.t in storage:
             continue
-        if fi.i is None or fi.o is None:
+        if fi.i in (None, END_OF_LIFE_OUTPUT) or fi.o in (
+            None,
+            CONSTRUCTION_INPUT,
+            UC_STARTUP_INPUT,
+        ):
             continue
 
         fin = flow_vals.get(FlowType.IN, 0)
@@ -321,8 +330,9 @@ class TableWriter:
     def _drop_placeholder_foreign_keys(self, table: str, records: list[dict[str, Any]]) -> None:
         """
         Remove the foreign keys of the columns of a flow table that would be violated by a
-        placeholder in the records about to be written (e.g. the "annual" season and tod).  The
-        table is rebuilt the first time it receives such records, and keeps its other foreign keys.
+        placeholder in the records about to be written (e.g. the "annual" season and tod, or the
+        "construction_input" output commodity).  The table is rebuilt the first time it receives
+        such records, and keeps its other foreign keys.
         """
         columns = sorted(
             column

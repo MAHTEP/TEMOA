@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, NamedTuple, cast
 from pyomo.environ import quicksum, value
 
 from temoa._internal.exchange_tech_cost_ledger import CostType, ExchangeTechCostLedger
+from temoa._internal.table_data_puller import UC_STARTUP_INPUT
 from temoa.components import costs
 from temoa.extensions.unit_commitment.components import startup
 from temoa.types.model_types import EI, FI, FlowType
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from temoa._internal.table_writer import TableWriter
     from temoa.core.model import TemoaModel
     from temoa.extensions.unit_commitment.core.model import UnitCommitmentModel
-    from temoa.types import Commodity, Period, Region, Season, Technology, TimeOfDay, Vintage
+    from temoa.types import Period, Region, Season, Technology, TimeOfDay, Vintage
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ def poll_startup_input_results(
     model = cast('UnitCommitmentModel', model)
 
     keys = {
-        FI(r, p, s, d, i, t, v, cast('Commodity', None))
+        FI(r, p, s, d, i, t, v, UC_STARTUP_INPUT)
         for r, i, t in model.uc_startup_input.sparse_keys()
         for p in model.time_optimize
         for v in model.process_vintages.get((r, p, t), [])

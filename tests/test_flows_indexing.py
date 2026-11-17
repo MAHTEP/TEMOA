@@ -15,10 +15,17 @@ from typing import Any, cast
 
 import pytest
 
+from temoa._internal.table_data_puller import (
+    CONSTRUCTION_INPUT,
+    END_OF_LIFE_OUTPUT,
+    UC_STARTUP_INPUT,
+    check_reserved_names,
+)
 from temoa._internal.table_writer import FLOW_TABLES, TableWriter
 from temoa._internal.temoa_sequencer import TemoaSequencer
 from temoa.core.config import TemoaConfig
 from temoa.core.flows_indexing import ANNUAL_TIME_SLICE, FlowsIndexing
+from temoa.extensions.unit_commitment.core.data_puller import poll_startup_input_results
 from temoa.types.model_types import FI, FlowType
 
 SCHEMA = resources.files('temoa.db_schema') / 'temoa_schema_v4.sql'
@@ -158,6 +165,23 @@ def test_annual_rows_drop_time_slice_foreign_keys(writer: TableWriter) -> None:
     assert _time_slice_violations(con) == []
 
 
+def test_placeholder_commodities_drop_their_foreign_keys(writer: TableWriter) -> None:
+    """
+    The output_comm foreign key of output_flow_in and the input_comm foreign key of
+    output_flow_out are removed the first time a placeholder commodity is written to them
+    """
+    con = writer.connection
+    writer.flow_register = {
+        _fi(A, A)._replace(i=cast('Any', 'steel'), o=CONSTRUCTION_INPUT): {FlowType.IN: 3.0},
+        _fi(A, A)._replace(i=END_OF_LIFE_OUTPUT, o=cast('Any', 'scrap')): {FlowType.OUT: 2.0},
+    }
+    writer.write_flow_tables(iteration=1)
+    assert 'output_comm' not in _foreign_key_columns(con, 'output_flow_in')
+    assert 'input_comm' in _foreign_key_columns(con, 'output_flow_in')
+    assert 'input_comm' not in _foreign_key_columns(con, 'output_flow_out')
+    assert 'output_comm' in _foreign_key_columns(con, 'output_flow_out')
+
+
 def test_legacy_summary_table_is_tolerated(writer: TableWriter) -> None:
     """
     Databases from earlier versions hold an output_flow_out_summary table.  It should be left
@@ -207,6 +231,69 @@ def test_parse_flows_indexing(raw: object, expected: FlowsIndexing) -> None:
 def test_parse_flows_indexing_rejects_bad_value() -> None:
     with pytest.raises(ValueError, match='flows_indexing'):
         FlowsIndexing.parse('hourly')
+
+
+def _model(
+    commodities: tuple[str, ...] = ('elc',),
+    seasons: tuple[str, ...] = ('summer',),
+    tods: tuple[str, ...] = ('day',),
+) -> Any:
+    return SimpleNamespace(
+        commodity_all=set(commodities), time_season=set(seasons), time_of_day=set(tods)
+    )
+
+
+@pytest.mark.parametrize('indexing', list(FlowsIndexing))
+@pytest.mark.parametrize('placeholder', [CONSTRUCTION_INPUT, END_OF_LIFE_OUTPUT, UC_STARTUP_INPUT])
+def test_placeholder_commodity_names_are_reserved(
+    placeholder: str, indexing: FlowsIndexing
+) -> None:
+    with pytest.raises(ValueError, match=placeholder):
+        check_reserved_names(_model(commodities=('elc', placeholder)), indexing)
+
+
+class _Param(dict[tuple[Any, ...], float]):
+    def sparse_keys(self) -> list[tuple[Any, ...]]:
+        return list(self)
+
+
+def test_uc_startup_inputs_have_placeholder_output() -> None:
+    """Unit commitment startup inputs have the placeholder commodity as their output"""
+    model = SimpleNamespace(
+        uc_startup_input=_Param({('R1', 'gas', 'CCGT'): 2.0}),
+        uc_unit_capacity=_Param({('R1', 'CCGT'): 100.0}),
+        v_uc_started=_Param(
+            {('R1', 2030, 'summer', 'day', 'CCGT', 2020): 3.0},
+        ),
+        time_optimize=[2030],
+        process_vintages={('R1', 2030, 'CCGT'): [2020]},
+        time_season=['summer'],
+        time_of_day=['day'],
+        segment_fraction_per_season=_Param({'summer': 0.5}),
+        days_per_period=2,
+    )
+    res: dict[FI, dict[FlowType, float]] = defaultdict(dict)
+    poll_startup_input_results(cast('Any', model), res)
+    fi = FI(
+        cast('Any', 'R1'),
+        cast('Any', 2030),
+        cast('Any', 'summer'),
+        cast('Any', 'day'),
+        cast('Any', 'gas'),
+        cast('Any', 'CCGT'),
+        cast('Any', 2020),
+        UC_STARTUP_INPUT,
+    )
+    assert dict(res) == {fi: {FlowType.IN: pytest.approx(600.0)}}
+
+
+@pytest.mark.parametrize('model', [_model(seasons=(A,)), _model(tods=(A,))])
+def test_annual_time_slice_name_is_reserved(model: Any) -> None:
+    with pytest.raises(ValueError, match=A):
+        check_reserved_names(model, FlowsIndexing.DEFAULT)
+    with pytest.raises(ValueError, match=A):
+        check_reserved_names(model, FlowsIndexing.ANNUAL)
+    check_reserved_names(model, FlowsIndexing.TIME_SLICED)
 
 
 SOLVED_CASES = ['config_materials.toml', 'config_emissions.toml']
@@ -262,11 +349,39 @@ def test_default_indexing(solved: sqlite3.Connection) -> None:
     seen_annual = seen_sliced = False
     for table in FLOW_TABLES:
         for season, tod, i, t, o, _ in _flow_rows(solved, table, FlowsIndexing.DEFAULT):
-            expected_annual = t in annual_techs or i is None or o is None
+            expected_annual = (
+                t in annual_techs or i == END_OF_LIFE_OUTPUT or o == CONSTRUCTION_INPUT
+            )
             assert _is_annual(season, tod) == expected_annual, (table, season, tod, i, t, o)
             seen_annual |= expected_annual
             seen_sliced |= not expected_annual
     assert seen_annual and seen_sliced
+
+
+def test_placeholder_commodities(solved: sqlite3.Connection) -> None:
+    """
+    Construction inputs and end of life outputs have a placeholder for their missing commodity,
+    so no flow has a missing commodity
+    """
+    expected = {
+        ('output_flow_in', 'output_comm', CONSTRUCTION_INPUT): 'construction_input',
+        ('output_flow_out', 'input_comm', END_OF_LIFE_OUTPUT): 'end_of_life_output',
+    }
+    for (table, column, placeholder), source in expected.items():
+        has_source = solved.execute(f'SELECT COUNT(*) FROM {source}').fetchone()[0] > 0
+        for scenario in SCENARIOS.values():
+            n = solved.execute(
+                f'SELECT COUNT(*) FROM {table} WHERE scenario = ? AND {column} = ?',
+                (scenario, placeholder),
+            ).fetchone()[0]
+            assert (n > 0) == has_source, (table, scenario)
+    for table in FLOW_TABLES:
+        missing = solved.execute(
+            f'SELECT COUNT(*) FROM {table} WHERE scenario IN '
+            f'({",".join("?" * len(SCENARIOS))}) AND (input_comm IS NULL OR output_comm IS NULL)',
+            tuple(SCENARIOS.values()),
+        ).fetchone()[0]
+        assert missing == 0, table
 
 
 def test_annual_indexing(solved: sqlite3.Connection) -> None:

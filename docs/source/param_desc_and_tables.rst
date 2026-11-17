@@ -200,6 +200,16 @@ Flow tables that only receive rows per time slice keep them. Queries that sum fl
 as ``SELECT SUM(flow) ... GROUP BY scenario, tech, period``, return the same
 totals with any choice.
 
+Input flows from :code:`construction_input` and from the unit commitment
+startup inputs (:code:`uc_startup_input`) have no output commodity, and output
+flows from :code:`end_of_life_output` have no input commodity. They are written
+with the placeholder commodities ``construction_input`` and ``uc_startup_input``
+(in the ``output_comm`` column of :code:`output_flow_in`) and
+``end_of_life_output`` (in the ``input_comm`` column of :code:`output_flow_out`),
+so these three names cannot name a commodity of the model. As for the annual
+time slice, the foreign key of these columns to :code:`commodity` is removed the
+first time a placeholder is written to them.
+
 .. note::
 
    Earlier versions wrote annual flows of MGA and Monte Carlo runs to a

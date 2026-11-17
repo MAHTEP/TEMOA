@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 ANNUAL_SEASON = cast('Season', ANNUAL_TIME_SLICE)
 ANNUAL_TOD = cast('TimeOfDay', ANNUAL_TIME_SLICE)
+CONSTRUCTION_INPUT = cast('Commodity', 'construction_input')
+END_OF_LIFE_OUTPUT = cast('Commodity', 'end_of_life_output')
+UC_STARTUP_INPUT = cast('Commodity', 'uc_startup_input')
 
 
 def _marks(num: int) -> str:
@@ -156,7 +159,7 @@ def poll_flow_results(
     rest per time slice), every flow once a year, or every flow per time slice
     :return: nested dictionary of FlowIndex, FlowType : value
     """
-    check_annual_time_slice_name(model, flows_indexing)
+    check_reserved_names(model, flows_indexing)
     threshold = epsilon
     if flows_indexing == FlowsIndexing.ANNUAL:
         epsilon = 0.0
@@ -241,7 +244,7 @@ def poll_flow_results(
             / value(model.period_length[v])
         )
         for s, d, share in _time_shares(model, sliced, r, v):
-            fi = FI(r, v, s, d, i, t, v, cast('Commodity', None))
+            fi = FI(r, v, s, d, i, t, v, CONSTRUCTION_INPUT)
             flow = annual * share
             if abs(flow) < epsilon:
                 continue
@@ -256,7 +259,7 @@ def poll_flow_results(
                 model.v_annual_retirement[r, p, t, v]
             )
             for s, d, share in _time_shares(model, sliced, r, p):
-                fi = FI(r, p, s, d, cast('Commodity', None), t, v, o)
+                fi = FI(r, p, s, d, END_OF_LIFE_OUTPUT, t, v, o)
                 flow = annual * share
                 if abs(flow) < epsilon:
                     continue
@@ -304,11 +307,23 @@ def _time_shares(
                 yield s, d, value(model.segment_fraction[s, d])
 
 
-def check_annual_time_slice_name(model: TemoaModel, flows_indexing: FlowsIndexing) -> None:
+def check_reserved_names(model: TemoaModel, flows_indexing: FlowsIndexing) -> None:
     """
-    Reject a model whose seasons or times of day use the name of the placeholder annual time
-    slice, which would make its time-sliced flows indistinguishable from annual ones
+    Reject a model that uses the name of a placeholder of the flow results: the commodities
+    standing in for the missing output of construction inputs and unit commitment startup
+    inputs and the missing input of end of life outputs, and the annual time slice of the flows
+    written once a year
     """
+    for placeholder, flows in (
+        (CONSTRUCTION_INPUT, 'output of construction inputs'),
+        (END_OF_LIFE_OUTPUT, 'input of end of life outputs'),
+        (UC_STARTUP_INPUT, 'output of unit commitment startup inputs'),
+    ):
+        if placeholder in model.commodity_all:
+            raise ValueError(
+                f'"{placeholder}" is reserved as the commodity of the {flows} in the flow '
+                f'results, so it cannot name a commodity of the model.  Rename it.'
+            )
     if flows_indexing == FlowsIndexing.TIME_SLICED:
         return
     if ANNUAL_TIME_SLICE in model.time_season or ANNUAL_TIME_SLICE in model.time_of_day:
