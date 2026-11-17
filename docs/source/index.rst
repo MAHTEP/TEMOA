@@ -25,6 +25,7 @@ Temoa Project Documentation
 
    mga
    moo
+   mgpa
    monte_carlo
    myopic
    stochastics

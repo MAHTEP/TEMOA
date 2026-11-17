@@ -15,7 +15,7 @@ scenario = "zulu"
 # Scenario Mode (Mandatory)
 # See documentation for explanations.  A standard single run is "perfect_foresight"
 # mode must be one of (case-insensitive):
-#     [perfect_foresight, MGA, MOO, myopic, method_of_morris, build_only, check, monte_carlo]
+#     [perfect_foresight, MGA, MOO, MGPA, myopic, method_of_morris, build_only, check, monte_carlo]
 scenario_mode = "perfect_foresight"
 
 # Optional extensions list
@@ -242,6 +242,31 @@ emission_commodities = []               # empty = all
 construction_input_commodities = []     # empty = all
 num_workers = 4                         # parallel solves of the Pareto optimal solutions (fallback: MOO_solver_options.toml)
 solver_options = { threads = 4 }
+
+[MGPA]
+# Pareto front
+f1 = "cost"                             # minimized objective (cost, emission, construction_input or custom)
+f2 = "emission"                         # capped objective (cost, emission, construction_input or custom)
+ncaps = 11                              # number of Pareto optimal solutions of the front
+c = 0.0001                              # slack variable weight
+emission_commodities = ['co2']          # commodities of the emission objective, empty = all
+construction_input_commodities = []     # commodities of the construction_input objective, empty = all
+MOO_num_workers = 4                     # parallel solves of the front (fallback: MOO_solver_options.toml)
+MOO_solver_options = { threads = 4 }
+# Pareto optimal solutions to explore
+points = "elbow"                        # "all", "elbow" or a list of indices of the front, e.g. [0, 5, 10]
+# f2_values = [150.0]                   # explore the Pareto optimal solutions at these values of f2
+# Alternatives around Pareto points
+slack1 = 0.05                           # band on f1, as a fraction of its range over the Pareto front
+slack2 = 0.05                           # band on f2, as a fraction of its range over the Pareto front
+axis = "tech_category_activity"         # tech_category_activity, tech_category_capacity or tech_category_emission
+# axis_emission_commodities = ['co2']   # required for tech_category_emission
+weighting = "hull_expansion"
+hull_max_dimension = 8                  # most categories in one hull; more are split into groups of hulls
+iteration_limit = 50                    # alternatives around each explored solution
+time_limit_hrs = 12                     # time limit for the alternatives around each explored solution
+MGA_num_workers = 4                     # parallel solves of the alternatives (fallback: MGA_solver_options.toml)
+MGA_solver_options = { threads = 4 }
 
 [monte_carlo]
 # a path from the PROJECT ROOT to the settings file that contains the run data.

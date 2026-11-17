@@ -106,7 +106,7 @@ class MgaSequencer:
     writer: TableWriter
     verbose: bool
 
-    def __init__(self, config: TemoaConfig):
+    def __init__(self, config: TemoaConfig, clear_scenario: bool = True):
         # PRELIMINARIES...
         # let's start with the assumption that input db = output db...  this may change?
         if not config.input_database == config.output_database:
@@ -184,7 +184,8 @@ class MgaSequencer:
 
         # output handling
         self.writer = TableWriter(self.config)
-        self.writer.clear_scenario()
+        if clear_scenario:
+            self.writer.clear_scenario()
         self.verbose = False  # for troubleshooting
 
         logger.info(
@@ -263,6 +264,12 @@ class MgaSequencer:
             cost_relaxation=self.cost_epsilon,
             config=self.config,
         )
+
+        self.explore(vector_manager, start_time)
+
+    def explore(self, vector_manager: VectorManager, start_time: datetime | None = None) -> None:
+        """Solve the instances supplied by the vector manager and record the results"""
+        start_time = start_time or datetime.now()
 
         # 5.  Set up the Workers
         num_workers = self.num_workers

@@ -19,3 +19,4 @@ class TemoaMode(Enum):
     MONTE_CARLO = 8  # MC optimization
     STOCHASTIC = 9  # Stochastic optimization
     MOO = 10  # Multi-objective optimization, multiple runs along a Pareto front
+    MGPA = 11  # Near-Pareto-optimal alternatives, MGA runs around MOO solutions

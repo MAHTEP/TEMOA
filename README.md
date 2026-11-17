@@ -59,6 +59,7 @@ The Temoa package is organized into clear modules:
   - `method_of_morris` - Sensitivity analysis
   - `monte_carlo` - Uncertainty quantification
   - `multi_objective_optimization` - Multi-Objective Optimization (MOO)
+  - `modeling_to_generate_near_pareto_alternatives` - Modeling to Generate near-Pareto-optimal Alternatives (MGPA)
   - `myopic` - Sequential decision making
 - **`temoa.model_checking`** - Model validation and integrity checking
 - **`temoa.data_processing`** - Output analysis and visualization
@@ -278,6 +279,10 @@ Two-solve process focusing on specific variables in the objective.
 
 Traces the Pareto front between two objective functions.
 
+### MGPA (Modeling to Generate near-Pareto-optimal Alternatives)
+
+Explores alternatives close to selected solutions of a Pareto front.
+
 ### Method of Morris
 
 Limited sensitivity analysis of user-selected variables.
@@ -322,6 +327,7 @@ Temoa includes optional extensions for advanced analysis:
 - **Stochastic Programming**: Scenario-based optimization
 - **Method of Morris**: Sensitivity analysis
 - **Multi-Objective Optimization (MOO)**: Pareto front between two objective functions
+- **Modeling to Generate near-Pareto-optimal Alternatives (MGPA)**: alternatives near a Pareto front
 
 ### Data Processing
 

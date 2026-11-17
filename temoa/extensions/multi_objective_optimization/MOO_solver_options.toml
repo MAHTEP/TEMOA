@@ -1,7 +1,7 @@
-# Fallback options for the parallel solves of the Pareto optimal solutions in MOO runs
+# Fallback options for the parallel solves of the Pareto optimal solutions in MOO and MGPA runs
 # the top level solver name in brackets should align with the solver name in the config.toml
 # These are layered on top of Temoa's solver defaults.  The config's [solver.options], and the
-# num_workers and solver_options of the [MOO] section, take precedence over them.
+# num_workers and solver_options of the [MOO] / [MGPA] sections, take precedence over them.
 # (see temoa/core/solver_spec.py)
 
 num_workers = 4
