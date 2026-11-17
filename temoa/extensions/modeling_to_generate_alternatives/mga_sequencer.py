@@ -454,10 +454,7 @@ class MgaSequencer:
         if idx in self.seen_instance_indices:
             raise ValueError('Instance index already seen.  Likely coding error')
         self.seen_instance_indices.add(idx)
-        self.writer.write_polled_capacity(result.results, iteration=idx)
-        self.writer.flow_register = result.results.flows
-        self.writer.write_flow_tables(iteration=idx)
-        self.writer.write_polled_optional(result.results, iteration=idx)
+        self.writer.write_polled_results(result.results, iteration=idx)
 
     def __del__(self) -> None:
         if hasattr(self, 'con') and self.con is not None:

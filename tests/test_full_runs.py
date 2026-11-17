@@ -432,7 +432,25 @@ def test_mga_utopia(
         assert 'utopia_mga-0' in scenarios, 'the base solve should be recorded as iteration 0'
         assert len(scenarios) > 1, 'at least one MGA iteration should be recorded'
 
+        base_cost = cur.execute(
+            "SELECT total_system_cost FROM main.output_objective WHERE scenario = 'utopia_mga-0'"
+        ).fetchone()[0]
+
         for scenario in scenarios:
+            total_cost = cur.execute(
+                'SELECT SUM(d_invest + d_fixed + d_var + d_emiss) FROM main.output_cost '
+                'WHERE scenario = ?',
+                (scenario,),
+            ).fetchone()[0]
+            assert total_cost is not None, f'output_cost should have rows for {scenario}'
+            assert total_cost <= base_cost * 1.03 * (1 + 1e-4), (
+                f'cost of {scenario} should respect the MGA cost relaxation'
+            )
+            n_emission = cur.execute(
+                'SELECT COUNT(*) FROM main.output_emission WHERE scenario = ?', (scenario,)
+            ).fetchone()[0]
+            assert n_emission > 0, f'output_emission should have rows for {scenario}'
+
             for table in ('output_flow_out', 'output_flow_in'):
                 total, annual = cur.execute(
                     f"SELECT COUNT(*), SUM(season = 'annual' OR tod = 'annual') FROM main.{table} "
@@ -441,3 +459,14 @@ def test_mga_utopia(
                 ).fetchone()
                 assert total > 0, f'{table} should have rows for {scenario}'
                 assert annual == 0, f'{table} rows for {scenario} should be time-sliced'
+
+        assert total_cost_matches_objective(cur, base_cost)
+
+
+def total_cost_matches_objective(cur: sqlite3.Cursor, base_cost: float) -> bool:
+    """The discounted costs of the base solve should add up to its objective value"""
+    total = cur.execute(
+        'SELECT SUM(d_invest + d_fixed + d_var + d_emiss) FROM main.output_cost '
+        "WHERE scenario = 'utopia_mga-0'"
+    ).fetchone()[0]
+    return bool(total == pytest.approx(base_cost, rel=1e-4))

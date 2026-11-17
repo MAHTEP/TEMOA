@@ -7,6 +7,7 @@ analytic approach to MGA.  MGA uses multi-processing to iteratively explore near
 
 - The processing of results is left to the modeler and the results from runs are tagged iteratively in the Output
 tables in the database.
+- Capacities, costs, emissions and flows are written for the base solve (iteration 0) and for every iteration.
 - Flows are written to the regular `output_flow_in`, `output_flow_out` and `output_curtailment` tables with the
 time indexing set by the top-level `flows_indexing` option, as in any other run.  Set it to `"annual"` to manage the
 size of the output for larger models.

@@ -167,14 +167,16 @@ Key Database Tables
 
 The results are spread across several tables, consistent with standard Temoa runs:
 
-*   **output_objective**: Stores the total system cost and MGA optimization objective for each iteration.
+*   **output_objective**: Stores the total system cost of the baseline solve (iteration 0).
 *   **output_net_capacity**: Stores the installed capacity for each technology, period, and iteration.
 *   **output_flow_in** / **output_flow_out** / **output_curtailment**: Stores energy flows
     between technologies and curtailment, at the level of detail selected with
     the top-level ``flows_indexing`` option (see :ref:`flows-indexing`), for the
     baseline solve and each iteration.
-*   **output_emission**: Stores emission results per commodity and technology.
-*   **output_cost**: Stores detailed cost breakdowns (investment, fixed, variable).
+*   **output_emission**: Stores emission results per commodity and technology, for the
+    baseline solve and each iteration.
+*   **output_cost**: Stores detailed cost breakdowns (investment, fixed, variable, emission),
+    for the baseline solve and each iteration.
 
 Comparing Iterations
 ~~~~~~~~~~~~~~~~~~~~
@@ -185,10 +187,10 @@ You can use SQL queries to compare results across different MGA iterations.
 
 .. code-block:: sql
 
-   SELECT scenario, total_system_cost
-   FROM output_objective
+   SELECT scenario, SUM(d_invest + d_fixed + d_var + d_emiss) AS total_system_cost
+   FROM output_cost
    WHERE scenario LIKE 'utopia_mga-%'
-     AND objective_name = 'total_cost'
+   GROUP BY scenario
    ORDER BY scenario;
 
 **Comparing Capacity for a Specific Technology:**
