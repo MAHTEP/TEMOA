@@ -30,13 +30,15 @@ under a ``[monte_carlo]`` section:
 
    [monte_carlo]
    run_settings = "path/to/mc_settings.csv"
-   solver_options = "mc_solver_options.toml"  # Optional
+   num_workers = 4  # Optional
+   solver_options = { threads = 2 }  # Optional
 
 Settings
 ~~~~~~~~
 
 * **run_settings**: Path to the CSV file containing the parameter deviations.
-* **solver_options** (Optional): Path to a TOML file containing worker counts and solver-specific options. If not provided, Temoa uses the default options file in ``temoa/extensions/monte_carlo/MC_solver_options.toml``.
+* **num_workers** (Optional): The number of worker processes.
+* **solver_options** (Optional): Either a table of solver options for the workers, or the path to a TOML file with the same structure as ``temoa/extensions/monte_carlo/MC_solver_options.toml``, which then replaces it.
 
 Input File Format
 -----------------
@@ -88,14 +90,21 @@ Monte Carlo runs are executed in parallel to maximize performance. The number of
 worker processes and solver-specific options for these workers are controlled
 by a configuration file.
 
-By default, Temoa uses the ``MC_solver_options.toml`` file located in the
-``temoa/extensions/monte_carlo/`` directory. However, you can provide your own
-file by specifying the ``solver_options`` path in your configuration TOML.
+The ``MC_solver_options.toml`` file located in the
+``temoa/extensions/monte_carlo/`` directory (or the file given by
+``solver_options``) holds fallback values: a ``num_workers`` and a section of
+options for each solver. The configuration file takes precedence over it. The
+solver options of the workers are merged as follows, the last layer taking
+precedence:
+
+1. Temoa's default options for the solver.
+2. The section of the solver in the options file.
+3. The ``options`` of the ``solver`` entry of the configuration file.
+4. The ``solver_options`` table of the ``[monte_carlo]`` section.
 
 .. tip::
-   The default configuration uses 11 worker processes. If you provide a custom
-   ``solver_options`` file, you can adjust the ``num_workers`` setting and add
-   solver-specific parameters (e.g., threads, tolerances) for each solver.
+   The default options file uses 11 worker processes. Set ``num_workers`` in
+   the ``[monte_carlo]`` section to change it.
 
 Outputs
 -------

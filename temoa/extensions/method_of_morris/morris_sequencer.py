@@ -10,7 +10,6 @@ import logging
 import multiprocessing
 import sqlite3
 import sys
-import tomllib
 from importlib import resources
 from logging.handlers import QueueListener
 from typing import TYPE_CHECKING, Any, cast
@@ -22,7 +21,12 @@ from SALib.sample.morris import sample  # type: ignore[import-untyped]
 from SALib.util import compute_groups_matrix, read_param_file  # type: ignore[import-untyped]
 
 from temoa._internal.table_writer import TableWriter
-from temoa.core.solver_spec import redact_solver_options, resolve_solver_options
+from temoa.core.solver_spec import (
+    mode_solver_options,
+    read_options_file,
+    redact_solver_options,
+    resolve_solver_options,
+)
 from temoa.data_io.hybrid_loader import HybridLoader
 from temoa.extensions.method_of_morris.morris_evaluate import evaluate
 
@@ -66,16 +70,12 @@ class MorrisSequencer:
         self.config = config
 
         # read in the options
-        try:
-            with resources.as_file(solver_options_file) as path:
-                with open(path, 'rb') as f:
-                    all_options = tomllib.load(f)
-            s_options = all_options.get(self.config.solver_name, {})
-
-        except FileNotFoundError:
-            logger.warning('Unable to find solver options toml file.  Using default options.')
-            s_options = {}
-        self.solver_options = resolve_solver_options(self.config.solver, s_options)
+        s_options = read_options_file(solver_options_file).get(self.config.solver_name, {})
+        self.solver_options = resolve_solver_options(
+            self.config.solver,
+            mode_solver_options(self.config.morris_inputs, 'morris'),
+            fallback_options=s_options,
+        )
         logger.info('Using solver options: %s', redact_solver_options(self.solver_options))
 
         # output handling

@@ -10,7 +10,6 @@ import logging
 import queue
 import sqlite3
 import time
-import tomllib
 from datetime import datetime
 from importlib import resources
 from logging import getLogger
@@ -18,12 +17,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from temoa._internal.table_writer import TableWriter
-from temoa.core.solver_spec import redact_solver_options, resolve_solver_options
+from temoa.core.solver_spec import (
+    mode_solver_options,
+    read_options_file,
+    redact_solver_options,
+    resolve_num_workers,
+    resolve_solver_options,
+)
 from temoa.data_io.hybrid_loader import HybridLoader
 from temoa.extensions.monte_carlo.mc_run import MCRun, MCRunFactory
 from temoa.extensions.monte_carlo.mc_worker import MCWorker
 
 if TYPE_CHECKING:
+    from importlib.resources.abc import Traversable
     from multiprocessing import Queue
     from multiprocessing.process import BaseProcess
 
@@ -54,48 +60,30 @@ class MCSequencer:
     def __init__(self, config: TemoaConfig):
         self.config = config
 
+        mc_inputs = self.config.monte_carlo_inputs or {}
+
         # determine the path to the solver options file
-        custom_path = (
-            self.config.monte_carlo_inputs.get('solver_options')
-            if self.config.monte_carlo_inputs
-            else None
-        )
-        if custom_path:
-            options_file_path: Path | None = Path(cast('str', custom_path))
+        custom_options = mc_inputs.get('solver_options')
+        options_source: Path | Traversable = solver_options_path
+        if isinstance(custom_options, str):
+            options_source = Path(custom_options)
             # if the path is relative, make it relative to the config file location if possible
-            if (
-                options_file_path
-                and not options_file_path.is_absolute()
-                and self.config.config_file
-            ):
-                options_file_path = self.config.config_file.parent / options_file_path
-            logger.info('Using custom Monte Carlo solver options from: %s', options_file_path)
-        else:
-            options_file_path = None
+            if not options_source.is_absolute() and self.config.config_file:
+                options_source = self.config.config_file.parent / options_source
+            logger.info('Using custom Monte Carlo solver options from: %s', options_source)
+            mc_inputs = {k: v for k, v in mc_inputs.items() if k != 'solver_options'}
 
         # read in the options
-        all_options: dict[str, Any]
-        try:
-            if options_file_path:
-                with open(options_file_path, 'rb') as f:
-                    all_options = tomllib.load(f)
-            else:
-                with resources.as_file(solver_options_path) as path:
-                    with open(path, 'rb') as f:
-                        all_options = tomllib.load(f)
-            s_options = all_options.get(self.config.solver_name, {})
-
-        except FileNotFoundError:
-            if options_file_path:
-                logger.error('Unable to find custom solver options file at: %s', options_file_path)
-            else:
-                logger.warning('Unable to find default solver options toml file.')
-            s_options = {}
-            all_options = {}
+        all_options = read_options_file(options_source)
+        s_options = all_options.get(self.config.solver_name, {})
 
         # worker options pulled from file
-        self.num_workers = all_options.get('num_workers', 1)
-        self.worker_solver_options = resolve_solver_options(self.config.solver, s_options)
+        self.num_workers = resolve_num_workers(mc_inputs, all_options, 'monte_carlo')
+        self.worker_solver_options = resolve_solver_options(
+            self.config.solver,
+            mode_solver_options(mc_inputs, 'monte_carlo'),
+            fallback_options=s_options,
+        )
         logger.info('Using solver options: %s', redact_solver_options(self.worker_solver_options))
 
         # internal records

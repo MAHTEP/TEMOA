@@ -211,6 +211,7 @@ levels = 8              # number of levels in param grid (must be even number)
 trajectories = 10        # number of Morris trajectories to generate/explore
 seed = false               # random seed for use in generation/analysis for repeatable results.  false=system derived
 cores = 0               # number of CPU cores to use.  0 (default) = cpu count
+# solver_options = { threads = 1 }      # options of each solve (fallback: morris_solver_options.toml)
 # Note:  Problem size (in general) is (Groups + 1) * trajectories see the SALib Dox
 #        Groups = number of unique labels used in MM analysis columns in DB
 
@@ -225,3 +226,5 @@ activity_labels = []
 [monte_carlo]
 # a path from the PROJECT ROOT to the settings file that contains the run data.
 run_settings = 'mc_settings.csv'
+num_workers = 4                         # parallel runs (fallback: MC_solver_options.toml)
+solver_options = { threads = 4 }
