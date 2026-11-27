@@ -20,13 +20,27 @@ from pyomo.core import Objective
 from temoa._internal.exchange_tech_cost_ledger import CostType, ExchangeTechCostLedger
 from temoa.components import costs
 from temoa.components.utils import get_variable_efficiency
+from temoa.core.flows_indexing import ANNUAL_TIME_SLICE, FlowsIndexing
 from temoa.types.model_types import EI, FI, SLI, CapData, FlowType
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from temoa.core.model import TemoaModel
-    from temoa.types.core_types import Commodity, Period, Region, Technology, Vintage
+    from temoa.types.core_types import (
+        Commodity,
+        Period,
+        Region,
+        Season,
+        Technology,
+        TimeOfDay,
+        Vintage,
+    )
 
 logger = logging.getLogger(__name__)
+
+ANNUAL_SEASON = cast('Season', ANNUAL_TIME_SLICE)
+ANNUAL_TOD = cast('TimeOfDay', ANNUAL_TIME_SLICE)
 
 
 def _marks(num: int) -> str:
@@ -128,13 +142,24 @@ def poll_capacity_results(model: TemoaModel, epsilon: float = 1e-5) -> CapData:
     return CapData(built=built, net=net, retired=ret)
 
 
-def poll_flow_results(model: TemoaModel, epsilon: float = 1e-5) -> dict[FI, dict[FlowType, float]]:
+def poll_flow_results(
+    model: TemoaModel,
+    epsilon: float = 1e-5,
+    flows_indexing: FlowsIndexing = FlowsIndexing.DEFAULT,
+) -> dict[FI, dict[FlowType, float]]:
     """
     Poll a solved model for flow results.
     :param M: A solved Model
     :param epsilon: epsilon (default 1e-5)
+    :param flows_indexing: the time indexing of the flows: each flow at the resolution of its
+    variable (annual technologies, construction inputs and end of life outputs once a year, the
+    rest per time slice), every flow once a year, or every flow per time slice
     :return: nested dictionary of FlowIndex, FlowType : value
     """
+    check_annual_time_slice_name(model, flows_indexing)
+    threshold = epsilon
+    if flows_indexing == FlowsIndexing.ANNUAL:
+        epsilon = 0.0
     dd: functools.partial[dict[FlowType, float]] = functools.partial(defaultdict, float)
     res: dict[FI, dict[FlowType, float]] = defaultdict(dd)
 
@@ -181,39 +206,32 @@ def poll_flow_results(model: TemoaModel, epsilon: float = 1e-5) -> dict[FI, dict
 
     # ---- annual ----
 
+    sliced = flows_indexing == FlowsIndexing.TIME_SLICED
+
     # basic annual flows
     for r, p, i, t, v, o in model.v_flow_out_annual.keys():
         # Make sure this isn't just a non-annual demand tech
         if t not in model.tech_annual:
             continue
-        for s in model.time_season:
-            for d in model.time_of_day:
-                if o in model.commodity_demand:
-                    distribution = value(model.demand_specific_distribution[r, p, s, d, o])
-                else:
-                    distribution = value(model.segment_fraction[s, d])
-                fi = FI(r, p, s, d, i, t, v, o)
-                flow = value(model.v_flow_out_annual[r, p, i, t, v, o]) * distribution
-                if abs(flow) < epsilon:
-                    continue
-                res[fi][FlowType.OUT] = flow
-                res[fi][FlowType.IN] = flow / value(model.efficiency[ritvo(fi)])
-                res[fi][FlowType.LOST] = (1 - value(model.efficiency[ritvo(fi)])) * res[fi][
-                    FlowType.IN
-                ]
+        demand = o if o in model.commodity_demand else None
+        for s, d, share in _time_shares(model, sliced, r, p, demand):
+            fi = FI(r, p, s, d, i, t, v, o)
+            flow = value(model.v_flow_out_annual[r, p, i, t, v, o]) * share
+            if abs(flow) < epsilon:
+                continue
+            res[fi][FlowType.OUT] = flow
+            res[fi][FlowType.IN] = flow / value(model.efficiency[ritvo(fi)])
+            res[fi][FlowType.LOST] = (1 - value(model.efficiency[ritvo(fi)])) * res[fi][FlowType.IN]
 
     # flex annual
     for r, p, i, t, v, o in model.v_flex_annual.keys():
-        for s in model.time_season:
-            for d in model.time_of_day:
-                fi = FI(r, p, s, d, i, t, v, o)
-                flow = value(model.v_flex_annual[r, p, i, t, v, o]) * value(
-                    model.segment_fraction[s, d]
-                )
-                if abs(flow) < epsilon:
-                    continue
-                res[fi][FlowType.FLEX] = flow
-                res[fi][FlowType.OUT] -= flow
+        for s, d, share in _time_shares(model, sliced, r, p):
+            fi = FI(r, p, s, d, i, t, v, o)
+            flow = value(model.v_flex_annual[r, p, i, t, v, o]) * share
+            if abs(flow) < epsilon:
+                continue
+            res[fi][FlowType.FLEX] = flow
+            res[fi][FlowType.OUT] -= flow
 
     # construction flows
     for r, i, t, v in model.construction_input.sparse_keys():
@@ -222,13 +240,12 @@ def poll_flow_results(model: TemoaModel, epsilon: float = 1e-5) -> dict[FI, dict
             * value(model.v_new_capacity[r, t, v])
             / value(model.period_length[v])
         )
-        for s in model.time_season:
-            for d in model.time_of_day:
-                fi = FI(r, v, s, d, i, t, v, cast('Commodity', None))
-                flow = annual * value(model.segment_fraction[s, d])
-                if abs(flow) < epsilon:
-                    continue
-                res[fi][FlowType.IN] = flow
+        for s, d, share in _time_shares(model, sliced, r, v):
+            fi = FI(r, v, s, d, i, t, v, cast('Commodity', None))
+            flow = annual * share
+            if abs(flow) < epsilon:
+                continue
+            res[fi][FlowType.IN] = flow
 
     # end of life flows
     for r, t, v, o in model.end_of_life_output.sparse_keys():
@@ -238,20 +255,68 @@ def poll_flow_results(model: TemoaModel, epsilon: float = 1e-5) -> dict[FI, dict
             annual = value(model.end_of_life_output[r, t, v, o]) * value(
                 model.v_annual_retirement[r, p, t, v]
             )
-            for s in model.time_season:
-                for d in model.time_of_day:
-                    fi = FI(r, p, s, d, cast('Commodity', None), t, v, o)
-                    flow = annual * value(model.segment_fraction[s, d])
-                    if abs(flow) < epsilon:
-                        continue
-                    res[fi][FlowType.OUT] = flow
+            for s, d, share in _time_shares(model, sliced, r, p):
+                fi = FI(r, p, s, d, cast('Commodity', None), t, v, o)
+                flow = annual * share
+                if abs(flow) < epsilon:
+                    continue
+                res[fi][FlowType.OUT] = flow
 
     if 'unit_commitment' in model.enabled_extensions:
         import temoa.extensions.unit_commitment.core.data_puller as uc
 
         uc.poll_startup_input_results(model, res, epsilon)
 
+    if flows_indexing == FlowsIndexing.ANNUAL:
+        annual_res: dict[FI, dict[FlowType, float]] = defaultdict(dd)
+        for fi, flows in res.items():
+            annual_fi = fi._replace(s=ANNUAL_SEASON, d=ANNUAL_TOD)
+            for flow_type, val in flows.items():
+                annual_res[annual_fi][flow_type] += val
+        return {
+            fi: kept
+            for fi, flows in annual_res.items()
+            if (kept := {ft: val for ft, val in flows.items() if abs(val) >= threshold})
+        }
+
     return res
+
+
+def _time_shares(
+    model: TemoaModel,
+    sliced: bool,
+    r: Region,
+    p: Period,
+    demand: Commodity | None = None,
+) -> Iterator[tuple[Season, TimeOfDay, float]]:
+    """
+    The time slices an annual quantity is reported in, with the share of it in each: the
+    placeholder annual time slice, or every time slice if the results are time-sliced
+    """
+    if not sliced:
+        yield ANNUAL_SEASON, ANNUAL_TOD, 1.0
+        return
+    for s in model.time_season:
+        for d in model.time_of_day:
+            if demand is not None:
+                yield s, d, value(model.demand_specific_distribution[r, p, s, d, demand])
+            else:
+                yield s, d, value(model.segment_fraction[s, d])
+
+
+def check_annual_time_slice_name(model: TemoaModel, flows_indexing: FlowsIndexing) -> None:
+    """
+    Reject a model whose seasons or times of day use the name of the placeholder annual time
+    slice, which would make its time-sliced flows indistinguishable from annual ones
+    """
+    if flows_indexing == FlowsIndexing.TIME_SLICED:
+        return
+    if ANNUAL_TIME_SLICE in model.time_season or ANNUAL_TIME_SLICE in model.time_of_day:
+        raise ValueError(
+            f'"{ANNUAL_TIME_SLICE}" is reserved as the season and time of day of annual flow '
+            f'results, so it cannot name a season or time of day of the model.  Rename it, or '
+            f'set flows_indexing = "{FlowsIndexing.TIME_SLICED.value}".'
+        )
 
 
 def poll_storage_level_results(model: TemoaModel, epsilon: float = 1e-5) -> dict[SLI, float]:

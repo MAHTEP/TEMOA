@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 from pyomo.opt import SolverFactory, SolverResults, check_optimal_termination
 
 from temoa._internal.data_brick import DataBrick, data_brick_factory
+from temoa.core.flows_indexing import FlowsIndexing
 from temoa.core.model import TemoaModel
 
 verbose = False  # for T/S or monitoring...
@@ -37,6 +38,7 @@ class MCWorker:
     results_queue: Queue[DataBrick | str]
     solver_name: str
     solver_options: dict[str, Any]
+    flows_indexing: FlowsIndexing
     opt: Any
     log_queue: Queue[logging.LogRecord]
     log_level: int
@@ -52,6 +54,7 @@ class MCWorker:
         log_queue: Queue[logging.LogRecord],
         solver_name: str,
         solver_options: dict[str, Any],
+        flows_indexing: FlowsIndexing = FlowsIndexing.DEFAULT,
         log_level: int = logging.INFO,
         solver_log_path: Path | None = None,
     ):
@@ -61,6 +64,7 @@ class MCWorker:
         self.results_queue = results_queue
         self.solver_name = solver_name
         self.solver_options = solver_options
+        self.flows_indexing = flows_indexing
         self.opt = None  # Initialize in run()
         self.log_queue = log_queue
         self.log_level = log_level
@@ -164,7 +168,7 @@ class MCWorker:
             try:
                 good_solve = check_optimal_termination(solve_res)
                 if good_solve:
-                    data_brick = data_brick_factory(model)
+                    data_brick = data_brick_factory(model, self.flows_indexing)
                     self.results_queue.put(data_brick)
                     logger.info(
                         'Worker %d solved a model in %0.2f minutes',

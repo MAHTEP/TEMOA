@@ -91,6 +91,7 @@ def refresh_databases() -> None:
         ('utopia_data.sql', 'utopia.sqlite'),
         ('utopia_data.sql', 'myo_utopia.sqlite'),
         ('utopia_data.sql', 'utopia_mc.sqlite'),
+        ('utopia_data.sql', 'utopia_mga.sqlite'),
         # Other test databases
         ('test_system.sql', 'test_system.sqlite'),
         ('mediumville.sql', 'mediumville.sqlite'),

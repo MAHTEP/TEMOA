@@ -112,6 +112,13 @@ output_threshold_activity = 0.001
 output_threshold_emission = 0.001
 output_threshold_cost = 0.01
 
+# time indexing of the flow results (output_flow_in, output_flow_out and output_curtailment)
+#   "default": annual technologies, construction inputs and end of life outputs once a year,
+#              all other flows per time slice
+#   "annual": every flow once a year
+#   "time_sliced": every flow per time slice
+flows_indexing = "default"
+
 # ------------------------------------
 #          MODEL PARAMETERS
 #  these are specific to each model

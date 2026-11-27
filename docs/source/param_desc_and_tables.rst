@@ -163,10 +163,49 @@ successful run completion.
 - :code:`output_retired_capacity`
 - :code:`output_flow_in`
 - :code:`output_flow_out`
-- :code:`output_flow_out_summary`
 - :code:`output_storage_level`
 - :code:`output_emission`
 - :code:`output_cost`
+
+.. _flows-indexing:
+
+Flows Indexing
+^^^^^^^^^^^^^^
+
+The top-level ``flows_indexing`` configuration option sets the time indexing of
+the flows written to :code:`output_flow_in`, :code:`output_flow_out` and
+:code:`output_curtailment`. It applies to every scenario mode, including the
+baseline solve and the iterations of MGA and Monte Carlo runs.
+
+* ``"default"``: each flow is written at the resolution of the model
+  variable it comes from. Flows of annual technologies (including their flex
+  output), input flows from :code:`construction_input` and output flows from
+  :code:`end_of_life_output` are written once a year, and all other flows per
+  time slice.
+* ``"annual"``: every flow is summed over the time slices of its period and
+  written once a year. This keeps the database small for models with many time
+  slices.
+* ``"time_sliced"``: every flow is written per season and time of day. Flows
+  that the model determines once a year are distributed over the time slices by
+  their segment fraction, or by the demand specific distribution for annual
+  technologies that serve a demand.
+
+Flows written once a year have ``annual`` in both the ``season`` and ``tod``
+columns, so ``annual`` cannot name a season or time of day of the model unless
+``flows_indexing = "time_sliced"``. As ``annual`` is not in :code:`time_season`
+and :code:`time_of_day`, the foreign keys of the ``season`` and ``tod`` columns
+of a flow table are removed the first time annual rows are written to it: the
+table is rebuilt without them, keeping its rows and its other foreign keys.
+Flow tables that only receive rows per time slice keep them. Queries that sum flows over a period, such
+as ``SELECT SUM(flow) ... GROUP BY scenario, tech, period``, return the same
+totals with any choice.
+
+.. note::
+
+   Earlier versions wrote annual flows of MGA and Monte Carlo runs to a
+   separate ``output_flow_out_summary`` table. That table is no longer created
+   or written. If it exists in an older database it is left in place, and rows
+   belonging to the scenario are cleared at the start of a run.
 
 Finally, the database tables below do not have a directed mapping to the model
 code.

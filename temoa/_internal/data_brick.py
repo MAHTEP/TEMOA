@@ -15,6 +15,7 @@ from temoa._internal.table_data_puller import (
     poll_flow_results,
     poll_objective,
 )
+from temoa.core.flows_indexing import FlowsIndexing
 from temoa.core.model import TemoaModel
 from temoa.types.core_types import Period, Region, Technology, Vintage
 from temoa.types.model_types import EI, FI, CapData, FlowType
@@ -83,17 +84,20 @@ class DataBrick:
         return self._emission_costs
 
 
-def data_brick_factory(model: TemoaModel) -> DataBrick:
+def data_brick_factory(
+    model: TemoaModel, flows_indexing: FlowsIndexing = FlowsIndexing.DEFAULT
+) -> DataBrick:
     """
     Build a data brick storage object from a model instance
     :param model: A solved model to pull data from.
+    :param flows_indexing: the time indexing of the flow data
     """
     name = model.name
     # process costs
     regular_costs, exchange_costs = poll_cost_results(model, p_0=None)
 
     # process flows
-    flow_data = poll_flow_results(model)
+    flow_data = poll_flow_results(model, flows_indexing=flows_indexing)
 
     # process emissions
     emission_costs, emission_flows = poll_emissions(model, p_0=None)

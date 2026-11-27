@@ -7,6 +7,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Any
 
+from temoa.core.flows_indexing import FlowsIndexing
 from temoa.core.modes import TemoaMode
 from temoa.core.solver_spec import SolverSpec, redact_solver_options
 from temoa.extensions.framework import normalize_extension_ids, resolve_extension_specs
@@ -51,6 +52,7 @@ class TemoaConfig:
         save_excel: bool = False,
         save_duals: bool = False,
         save_storage_levels: bool = False,
+        flows_indexing: FlowsIndexing | str = FlowsIndexing.DEFAULT,
         save_lp_file: bool = False,
         time_sequencing: str | None = None,
         days_per_period: int = 365,
@@ -152,6 +154,7 @@ class TemoaConfig:
         self.save_excel = save_excel
         self.save_duals = save_duals
         self.save_storage_levels = save_storage_levels
+        self.flows_indexing = FlowsIndexing.parse(flows_indexing)
         self.save_lp_file = save_lp_file
         self.time_sequencing = time_sequencing
         self.days_per_period = days_per_period
@@ -407,6 +410,7 @@ class TemoaConfig:
         msg += '{:>{}s}: {}\n'.format('Pyomo LP write status', width, self.save_lp_file)
         msg += '{:>{}s}: {}\n'.format('Save duals to output db', width, self.save_duals)
         msg += '{:>{}s}: {}\n'.format('Save storage to output db', width, self.save_storage_levels)
+        msg += '{:>{}s}: {}\n'.format('Flows indexing', width, self.flows_indexing.value)
 
         msg += spacer
         msg += '{:>{}s}: {}\n'.format('SQLite journal mode', width, self.sqlite_journal_mode)

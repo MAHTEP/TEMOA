@@ -5,6 +5,7 @@ tool for writing outputs to database tables
 from __future__ import annotations
 
 import math
+import re
 import sqlite3
 import sys
 from collections import defaultdict
@@ -29,6 +30,7 @@ from temoa._internal.table_data_puller import (
     poll_objective,
     poll_storage_level_results,
 )
+from temoa.core.flows_indexing import ANNUAL_TIME_SLICE, FlowsIndexing
 from temoa.core.modes import TemoaMode
 
 if TYPE_CHECKING:
@@ -73,11 +75,21 @@ OUTPUT_THRESHOLD_DEFAULTS = {
     'cost': 1e-2,
 }
 
-FLOW_SUMMARY_FILE_LOC = (
-    resources.files('temoa.extensions.modeling_to_generate_alternatives')
-    / 'make_flow_summary_table.sql'
-)
+FLOW_TABLES = ('output_flow_in', 'output_flow_out', 'output_curtailment')
+
+PLACEHOLDERS: dict[str, frozenset[str]] = {
+    'season': frozenset({ANNUAL_TIME_SLICE}),
+    'tod': frozenset({ANNUAL_TIME_SLICE}),
+}
+
 MC_TWEAKS_FILE_LOC = resources.files('temoa.extensions.monte_carlo') / 'make_deltas_table.sql'
+
+
+def _foreign_key_columns(con: sqlite3.Connection, table: str) -> set[str]:
+    return {
+        column
+        for _, _, _, column, *_ in con.execute(f'PRAGMA foreign_key_list({table})').fetchall()
+    }
 
 
 CostEntries = dict[tuple['Region', 'Period', 'Technology', 'Vintage'], dict[CostType, float]]
@@ -109,6 +121,7 @@ class ResultPoller:
     activity_threshold: float
     emission_threshold: float
     cost_threshold: float
+    flows_indexing: FlowsIndexing
     check_balance: bool = False
     save_storage_levels: bool = False
     save_duals: bool = False
@@ -120,7 +133,9 @@ class ResultPoller:
         regular_costs, exchange_costs = poll_cost_results(
             model, value(min(model.time_optimize)), self.cost_threshold
         )
-        flows = poll_flow_results(model, self.activity_threshold)
+        flows = poll_flow_results(
+            model, self.activity_threshold, flows_indexing=self.flows_indexing
+        )
         if self.check_balance:
             check_flow_balance(flows, model.tech_storage)
         unit_commitment = None
@@ -303,6 +318,52 @@ class TableWriter:
         except sqlite3.Error as _:
             logger.exception('Error during foreign key validation')
 
+    def _drop_placeholder_foreign_keys(self, table: str, records: list[dict[str, Any]]) -> None:
+        """
+        Remove the foreign keys of the columns of a flow table that would be violated by a
+        placeholder in the records about to be written (e.g. the "annual" season and tod).  The
+        table is rebuilt the first time it receives such records, and keeps its other foreign keys.
+        """
+        columns = sorted(
+            column
+            for column in _foreign_key_columns(self.connection, table) & PLACEHOLDERS.keys()
+            if any(row[column] in PLACEHOLDERS[column] for row in records)
+        )
+        if not columns:
+            return
+        ddl = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+        ).fetchone()[0]
+        for column in columns:
+            ddl, found = re.subn(
+                rf'(\b{column}\s+TEXT)\s+REFERENCES\s+\w+\s*\(\s*\w+\s*\)', r'\1', ddl
+            )
+            if not found:
+                logger.warning(
+                    'Unable to remove the foreign key of column %s of table %s.  The placeholders '
+                    'written to it will be reported as foreign key violations.',
+                    column,
+                    table,
+                )
+                return
+        self._rebuild_table(table, ddl)
+        self.connection.commit()
+        logger.info('Removed the foreign keys of columns %s of table %s', columns, table)
+
+    def _rebuild_table(self, table: str, ddl: str) -> None:
+        new_table = f'{table}_new'
+        old_columns = [row[1] for row in self.connection.execute(f'PRAGMA table_info({table})')]
+        self.connection.execute(f'DROP TABLE IF EXISTS {new_table}')
+        self.connection.execute(ddl.replace(table, new_table, 1))
+        new_columns = {row[1] for row in self.connection.execute(f'PRAGMA table_info({new_table})')}
+        columns = ', '.join(c for c in old_columns if c in new_columns)
+        self.connection.execute(
+            f'INSERT INTO {new_table} ({columns}) SELECT {columns} FROM {table}'
+        )
+        self.connection.execute(f'DROP TABLE {table}')
+        self.connection.execute(f'ALTER TABLE {new_table} RENAME TO {table}')
+        self._table_columns_cache.pop(table, None)
+
     def _get_table_columns(self, table_name: str) -> set[str]:
         """Returns a set of column names for the given table."""
         if table_name not in self._table_columns_cache:
@@ -450,6 +511,7 @@ class TableWriter:
             activity_threshold=self.output_threshold_activity,
             emission_threshold=self.output_threshold_emission,
             cost_threshold=self.output_threshold_cost,
+            flows_indexing=self.config.flows_indexing,
             check_balance=check_balance,
             save_storage_levels=self.config.save_storage_levels,
             save_duals=self.config.save_duals,
@@ -509,7 +571,8 @@ class TableWriter:
             self.write_emissions(iteration=iteration)
 
             self._insert_capacity_results(brick.capacity_data, iteration=iteration)
-            self._insert_summary_flow_results(flow_data=brick.flow_data, iteration=iteration)
+            self.flow_register = brick.flow_data
+            self.write_flow_tables(iteration=iteration)
             self._insert_cost_results(
                 regular_entries=brick.cost_data,
                 exchange_entries=brick.exchange_cost_data,
@@ -727,9 +790,6 @@ class TableWriter:
 
         scenario = self._get_scenario_name(iteration)
 
-        # Structure to hold list of dicts for each table type
-        table_data: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
-
         map_flow_to_table = {
             FlowType.OUT: 'output_flow_out',
             FlowType.IN: 'output_flow_in',
@@ -737,40 +797,46 @@ class TableWriter:
             FlowType.FLEX: 'output_curtailment',
         }
 
+        entries: defaultdict[tuple[Any, ...], float] = defaultdict(float)
         for fi, flows in self.flow_register.items():
-            sector = self.tech_sectors.get(fi.t)
-
             for flow_type, val in flows.items():
-                if abs(val) < self.output_threshold_activity:
-                    continue
-
                 table_name = map_flow_to_table.get(flow_type)
                 if not table_name:
                     continue
+                pooled_type = FlowType.CURTAIL if flow_type == FlowType.FLEX else flow_type
+                entries[(table_name, pooled_type, *fi)] += val
 
-                row: dict[str, Any] = {
-                    'scenario': scenario,
-                    'region': fi.r,
-                    'sector': sector,
-                    'period': fi.p,
-                    'season': fi.s,
-                    'tod': fi.d,
-                    'input_comm': fi.i,
-                    'tech': fi.t,
-                    'vintage': fi.v,
-                    'output_comm': fi.o,
-                    'units': self._get_flow_units(flow_type, fi.i, fi.o),
-                }
+        # Structure to hold list of dicts for each table type
+        table_data: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
 
-                # Assign value to correct column name based on table/type
-                if table_name == 'output_curtailment':
-                    row['curtailment'] = val
-                else:
-                    row['flow'] = val
+        for (table_name, flow_type, r, p, s, d, i, t, v, o), val in entries.items():
+            if abs(val) < self.output_threshold_activity:
+                continue
 
-                table_data[table_name].append(row)
+            row: dict[str, Any] = {
+                'scenario': scenario,
+                'region': r,
+                'sector': self.tech_sectors.get(t),
+                'period': p,
+                'season': s,
+                'tod': d,
+                'input_comm': i,
+                'tech': t,
+                'vintage': v,
+                'output_comm': o,
+                'units': self._get_flow_units(flow_type, i, o),
+            }
+
+            # Assign value to correct column name based on table/type
+            if table_name == 'output_curtailment':
+                row['curtailment'] = val
+            else:
+                row['flow'] = val
+
+            table_data[table_name].append(row)
 
         for table_name, records in table_data.items():
+            self._drop_placeholder_foreign_keys(table_name, records)
             self._bulk_insert(table_name, records)
 
         self.connection.commit()
@@ -803,58 +869,14 @@ class TableWriter:
             return unit_prop.get_flow_out_units(output_comm)
         return None
 
-    def write_summary_flow(self, model: TemoaModel, iteration: int | None = None) -> None:
-        flow_data = self.calculate_flows(model=model)
-        self._insert_summary_flow_results(flow_data=flow_data, iteration=iteration)
-
-    def _insert_summary_flow_results(
-        self, flow_data: dict[FI, dict[FlowType, float]], iteration: int | None
-    ) -> None:
-        if self.tech_sectors is None:
-            raise RuntimeError('tech sectors not available... code error')
-
-        scenario = self._get_scenario_name(iteration)
-        self.flow_register = flow_data
-
-        # Aggregate flows (sum across seasons/time of day)
-        output_flows: defaultdict[
-            tuple[str, Period, str | None, Technology, Vintage, str | None], float
-        ] = defaultdict(float)
-
-        for fi, flows in self.flow_register.items():
-            val = flows.get(FlowType.OUT)
-            if val:
-                key = (fi.r, fi.p, fi.i, fi.t, fi.v, fi.o)
-                output_flows[key] += val
-
-        records = []
-        for (r, p, i, t, v, o), val in output_flows.items():
-            if abs(val) < self.output_threshold_activity:
-                continue
-            records.append(
-                {
-                    'scenario': scenario,
-                    'region': r,
-                    'sector': self.tech_sectors.get(t),
-                    'period': p,
-                    'input_comm': i,
-                    'tech': t,
-                    'vintage': v,
-                    'output_comm': o,
-                    'flow': val,
-                    'units': None,
-                }
-            )
-
-        self._bulk_insert('output_flow_out_summary', records)
-        self.connection.commit()
-
     def check_flow_balance(self, model: TemoaModel) -> bool:
         """Sanity check to ensure that the flow tables are balanced."""
         return check_flow_balance(self.flow_register, model.tech_storage)
 
     def calculate_flows(self, model: TemoaModel) -> dict[FI, dict[FlowType, float]]:
-        return poll_flow_results(model, self.output_threshold_activity)
+        return poll_flow_results(
+            model, self.output_threshold_activity, flows_indexing=self.config.flows_indexing
+        )
 
     def write_costs(
         self,
@@ -987,9 +1009,6 @@ class TableWriter:
 
         self.connection.executescript(sql_commands)
         self.connection.commit()
-
-    def make_summary_flow_table(self) -> None:
-        self.execute_script(FLOW_SUMMARY_FILE_LOC)
 
     def make_mc_tweaks_table(self) -> None:
         self.execute_script(MC_TWEAKS_FILE_LOC)

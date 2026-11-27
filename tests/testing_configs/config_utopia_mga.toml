@@ -1,0 +1,20 @@
+scenario = "utopia_mga"
+scenario_mode = "mga"
+
+input_database = "tests/testing_outputs/utopia_mga.sqlite"
+output_database = "tests/testing_outputs/utopia_mga.sqlite"
+neos = false
+
+solver = "appsi_highs"
+
+time_sequencing = 'seasonal_timeslices'
+days_per_period = 365
+reserve_margin = 'static'
+flows_indexing = "time_sliced"
+
+[MGA]
+cost_epsilon = 0.03
+iteration_limit = 3
+time_limit_hrs = 1
+axis = "tech_category_activity"
+weighting = "hull_expansion"

@@ -36,6 +36,7 @@ legacy_config_files = [
 
 myopic_files = [{'name': 'myopic utopia', 'filename': 'config_utopia_myopic.toml'}]
 mc_files = [{'name': 'utopia mc', 'filename': 'config_utopia_mc.toml'}]
+mga_files = [{'name': 'utopia mga', 'filename': 'config_utopia_mga.toml'}]
 stochastic_files = [{'name': 'stochastic utopia', 'filename': 'config_utopia_stochastic.toml'}]
 
 
@@ -395,3 +396,48 @@ def test_mc_utopia(
         scenarios = [r[0] for r in res]
         assert 'utopia_mc-1' in scenarios
         assert 'utopia_mc-2' in scenarios
+
+        for table in ('output_flow_out', 'output_flow_in'):
+            for scenario in ('utopia_mc-1', 'utopia_mc-2'):
+                total, annual = cur.execute(
+                    f"SELECT COUNT(*), SUM(season = 'annual' AND tod = 'annual') FROM main.{table} "
+                    'WHERE scenario = ?',
+                    (scenario,),
+                ).fetchone()
+                assert total > 0, f'{table} should have rows for {scenario}'
+                assert annual == total, f'{table} rows for {scenario} should be annual'
+
+
+@pytest.mark.parametrize(
+    'system_test_run', argvalues=mga_files, indirect=True, ids=[d['name'] for d in mga_files]
+)
+def test_mga_utopia(
+    system_test_run: tuple[str, SolverResults | None, TemoaModel | None, TemoaSequencer],
+) -> None:
+    """
+    Test the output database contents of an MGA run
+    """
+    _, _, _, sequencer = system_test_run
+
+    with contextlib.closing(sqlite3.connect(sequencer.config.output_database)) as con:
+        cur = con.cursor()
+
+        scenarios = [
+            r[0]
+            for r in cur.execute(
+                'SELECT DISTINCT scenario FROM main.output_net_capacity '
+                "WHERE scenario LIKE 'utopia_mga-%'"
+            ).fetchall()
+        ]
+        assert 'utopia_mga-0' in scenarios, 'the base solve should be recorded as iteration 0'
+        assert len(scenarios) > 1, 'at least one MGA iteration should be recorded'
+
+        for scenario in scenarios:
+            for table in ('output_flow_out', 'output_flow_in'):
+                total, annual = cur.execute(
+                    f"SELECT COUNT(*), SUM(season = 'annual' OR tod = 'annual') FROM main.{table} "
+                    'WHERE scenario = ?',
+                    (scenario,),
+                ).fetchone()
+                assert total > 0, f'{table} should have rows for {scenario}'
+                assert annual == 0, f'{table} rows for {scenario} should be time-sliced'
