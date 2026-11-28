@@ -110,6 +110,11 @@ Each run is saved under a unique scenario name in the output tables, following
 the format: ``<base_scenario>-<run_index>``. For example, if your base scenario
 is ``utopia_mc``, the results for the first run will be labeled ``utopia_mc-1``.
 
+The flows of every run are written to ``output_flow_in``, ``output_flow_out``
+and ``output_curtailment`` with the time indexing set by the top-level
+``flows_indexing`` option (see :ref:`flows-indexing`). Setting it to
+``"annual"`` keeps the database small when there are many runs.
+
 Tweak Log Table
 ~~~~~~~~~~~~~~~
 

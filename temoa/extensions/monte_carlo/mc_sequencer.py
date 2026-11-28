@@ -119,7 +119,6 @@ class MCSequencer:
         # 0. Set up database for scenario
         self.writer.clear_scenario()
         self.writer.make_mc_tweaks_table()  # add the output table for tweaks, if not exists
-        self.writer.make_summary_flow_table()  # add the summary flow table, if not exists
 
         # 1. Load data
         import contextlib
@@ -167,6 +166,7 @@ class MCSequencer:
                 log_queue=log_queue,
                 solver_name=self.config.solver_name,
                 solver_options=self.worker_solver_options,
+                flows_indexing=self.config.flows_indexing,
                 log_level=logging.INFO,
                 solver_log_path=s_path,
             )

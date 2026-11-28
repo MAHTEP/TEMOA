@@ -115,7 +115,7 @@ def test_startup_outputs(runs: dict[str, tuple[TemoaModel, Path]], representatio
         ).fetchone()[0]
         startup_input = con.execute(
             'SELECT SUM(flow) FROM output_flow_in '
-            "WHERE tech = 'gen' AND input_comm = 'fuel' AND output_comm IS NULL"
+            "WHERE tech = 'gen' AND input_comm = 'fuel' AND output_comm = 'uc_startup_input'"
         ).fetchone()[0]
         fuel_supplied = con.execute(
             "SELECT SUM(flow) FROM output_flow_out WHERE tech = 'imp_fuel'"

@@ -988,25 +988,5 @@ CREATE TABLE IF NOT EXISTS myopic_efficiency
 -- for efficient searching by rtv:
 CREATE INDEX IF NOT EXISTS region_tech_vintage ON myopic_efficiency (region, tech, vintage);
 
-CREATE TABLE IF NOT EXISTS output_flow_out_summary
-(
-    scenario    TEXT,
-    region      TEXT,
-    sector      TEXT
-        REFERENCES sector_label (sector),
-    period      INTEGER
-        REFERENCES time_period (period),
-    input_comm  TEXT
-        REFERENCES commodity (name),
-    tech        TEXT
-        REFERENCES technology (tech),
-    vintage     INTEGER
-        REFERENCES time_period (period),
-    output_comm TEXT
-        REFERENCES commodity (name),
-    flow        REAL,
-    PRIMARY KEY (scenario, region, period, input_comm, tech, vintage, output_comm)
-);
-
 COMMIT;
 PRAGMA foreign_keys = ON;

@@ -239,8 +239,6 @@ class MgaSequencer:
         self.writer.write_results(
             instance, save_storage_levels=self.config.save_storage_levels, iteration=0
         )
-        self.writer.make_summary_flow_table()  # make the flow summary table, if it doesn't exist
-        self.writer.write_summary_flow(instance, iteration=0)
 
         # 3a. Capture cost and make it a constraint
         tot_cost = pyo.value(instance.total_cost)
@@ -456,9 +454,7 @@ class MgaSequencer:
         if idx in self.seen_instance_indices:
             raise ValueError('Instance index already seen.  Likely coding error')
         self.seen_instance_indices.add(idx)
-        self.writer.write_polled_capacity(result.results, iteration=idx)
-        self.writer._insert_summary_flow_results(result.results.flows, iteration=idx)
-        self.writer.write_polled_optional(result.results, iteration=idx)
+        self.writer.write_polled_results(result.results, iteration=idx)
 
     def __del__(self) -> None:
         if hasattr(self, 'con') and self.con is not None:
